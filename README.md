@@ -5,7 +5,10 @@ Members:
 
 # Usage
 
-Compile file using gcc <file.c> -o <file>
+Compile file using 
+```
+gcc <file.c> -o <file>
+```
 Run using 
 ```
 ./<file> data/f1.csv data/f2.csv data/f3.csv data/f4.csv`

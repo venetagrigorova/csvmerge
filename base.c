@@ -9,6 +9,7 @@
 #define MAX_NUM_CHUNKS 30  // Should have CHUNK_SIZE * MAX_NUM_CHUNKS >= 12 Mio.
 #define MAX_PRINT_LINES 25 // Only for testing, limit the number of lines printed out at once
 
+
 // Structure for record with no fixed number of fields
 typedef struct {
     char** fields;  // fields is an array of arrays, representing a fixed number of strings
@@ -42,19 +43,7 @@ typedef struct {
     int numFields;
 } JoinBuffer;
 
-/* Function prototypes
-void initRecord(Record* record, int numFields);
-void freeRecord(Record* record);
-Record* copyRecord(const Record* source);
-Table* createTable(int numFields);
-void freeTable(Table* table);
-void sortChunks(const char* inputFile, Table* table, int joinFieldIdx);
-int compareRecordsOnZero(const void* a, const void* b, int joinFieldIdx);
-void mergeChunks(Table* table, FILE* outputFile, int joinFieldIdx);
-void performMergeJoin(Table* leftTable, Table* rightTable, const char* outputFile,
-                     int leftJoinField, int rightJoinField);
 
- */
 
 // -----------= CONSTUCTORS AND DESTRUCTORS =----------------
 
@@ -78,6 +67,7 @@ void initRecord(Record* record, const int numFields) {
     }
 }
 
+
 // Free memory allocated for a record
 void freeRecord(Record* record) {
     for (int i = 0; i < record->numFields; i++) {
@@ -85,6 +75,7 @@ void freeRecord(Record* record) {
     }
     free(record->fields);
 }
+
 
 // Copy to destination record from source record, assuming they have the same number of fields
 void copyRecord(Record* dest, const Record* source) {
@@ -97,6 +88,7 @@ void copyRecord(Record* dest, const Record* source) {
         strcpy(dest->fields[i], source->fields[i]);
     }
 }
+
 
 // Create and initialize a chunk
 Chunk* createChunk(const int numRecords, const int numFields) {
@@ -127,6 +119,7 @@ void freeChunk(Chunk* chunk) {
     }
 }
 
+
 // Create and initialize a table
 Table* createTable(const int numFields) {
     Table* table = malloc(sizeof(Table));
@@ -143,6 +136,7 @@ Table* createTable(const int numFields) {
     return table;
 }
 
+
 // Free memory allocated for a table
 void freeTable(Table* table) {
     freeRecord(&table->currentRecord);
@@ -152,8 +146,6 @@ void freeTable(Table* table) {
         table = NULL;
     }
 }
-
-
 
 
 
@@ -177,6 +169,7 @@ JoinBuffer* createJoinBuffer(const int numFields) {
     return buffer;
 }
 
+
 bool recordFitsBuffer(Record* record, const int key_index, JoinBuffer* buffer) {
     if(buffer->numRecords == 0) {
         return false;
@@ -184,6 +177,7 @@ bool recordFitsBuffer(Record* record, const int key_index, JoinBuffer* buffer) {
     int compare = strcmp(buffer->key, record->fields[key_index]);
     return (compare == 0);
 }
+
 
 void writeRecordToBuffer(Record* record, JoinBuffer* buffer, const int right_on) {
     if(buffer->numRecords == 0) {
@@ -201,6 +195,7 @@ void writeRecordToBuffer(Record* record, JoinBuffer* buffer, const int right_on)
     buffer->numRecords++;
 }
 
+
 void emptyBuffer(JoinBuffer* buffer) {
     buffer->key[0] = '\0';
     for (int i = 0; i < buffer->numRecords; i++) {
@@ -208,6 +203,7 @@ void emptyBuffer(JoinBuffer* buffer) {
     }
     buffer->numRecords = 0;
 }
+
 
 void freeJoinBuffer(JoinBuffer* buffer) {
     for (int i = 0; i < BUFFER_SIZE; i++) {
@@ -219,6 +215,7 @@ void freeJoinBuffer(JoinBuffer* buffer) {
         buffer = NULL;
     }
 }
+
 
 
 // -----------= INPUT FROM FILE INTO TABLE/CHUNK =----------------
@@ -234,15 +231,16 @@ void sanitizeLine(char *line, const int numFields) {
     line[i] = '\0'; // Finally, replace linebreak with null character
 }
 
-void loadLineIntoRecord(const char* line, Record* record) {
+
+void loadLineIntoRecord(char* line, const Record* record) {
     // Parse the line into a record by splitting the line on the comma
     char* separator = strtok(line, ",");
 
     // Copy all fields sequentially
     for(int i=0; i < record->numFields; i++) {
         if (separator == NULL) { // leave this in for testing purposes, remove at the very end
-            printf("%s. %s\n", separator, line);
-            perror("Found less fields in line than allocated");
+            printf("%s\n", line);
+            perror("Found less fields in this line than allocated");
             exit(EXIT_FAILURE);
         }
         strcpy(record->fields[i], separator);
@@ -251,10 +249,11 @@ void loadLineIntoRecord(const char* line, Record* record) {
     }
     if(separator != NULL) { // leave this in for testing purposes, remove at the very end
         printf("%s. %s\n", separator, line);
-        perror("Found more fields in line than allocated");
+        perror("Found more fields in this line than allocated");
         exit(EXIT_FAILURE);
     }
 }
+
 
 // Used in Table: Read a single record to replace the current record
 void readNextRecord(Table* table) {
@@ -292,6 +291,7 @@ void readNextRecord(Table* table) {
     }
 }
 
+
 // read from input file into chunk until chunk is full
 Chunk* loadFileIntoChunk(FILE* inputFile, const int numFields) {
     Chunk* chunk = createChunk(CHUNK_SIZE, numFields);
@@ -314,6 +314,7 @@ Chunk* loadFileIntoChunk(FILE* inputFile, const int numFields) {
     return chunk;
 }
 
+
 Table* loadFileIntoTable(const char* inputFileName, const int numFields) {
     Table* table = createTable(numFields);
     table->file = fopen(inputFileName, "r");
@@ -326,19 +327,29 @@ Table* loadFileIntoTable(const char* inputFileName, const int numFields) {
 
 
 
-
 // -----------= OUTPUT FUNCTIONS =----------------
 
 // Write a single record to file
 void writeRecordToFile(const Record* record, FILE* output_file) {
+    char field[FIELD_LENGTH];
     for (int i = 0; i < record->numFields; i++) {
-        fprintf(output_file, "%s", record->fields[i]);
+        int j = 0;
+        // Find blank characters and replace them with \0 again
+        strcpy(field, record->fields[i]);
+        for(j; field[j] != '\0' & j<FIELD_LENGTH; j++) {
+            if(field[j] == ' ') {
+                field[j] = '\0';
+            }
+
+        }
+        fwrite(field, sizeof(char), j, output_file);
         if (i < record->numFields - 1) {
-            fprintf(output_file, ",");
+            fputc(44, output_file); // put a comma after the field
         }
     }
-    fprintf(output_file, "\n");
+    fputc(012,output_file); // put a newline after the line
 }
+
 
 // Write an entire chunk to file
 void writeChunkToFile(const Chunk* chunk, const char* outputFilename) {
@@ -353,18 +364,22 @@ void writeChunkToFile(const Chunk* chunk, const char* outputFilename) {
     fclose(file);
 }
 
-// Write an entire table to file
-void writeTableToFile(const Table* table, const char* outputFilename) {
-    FILE* file = fopen(outputFilename, "wb+");
-    if (!file) {
-        perror("Error opening file for writing");
-        exit(EXIT_FAILURE);
-    }
+void _writeTableToFileStream(Table* table, FILE* file) {
     readNextRecord(table);
     while(!feof(table->file)) {
         writeRecordToFile(&table->currentRecord, file);
         readNextRecord(table);
     }
+}
+
+// Write an entire table to file
+void writeTableToFile(Table* table, const char* outputFilename) {
+    FILE* file = fopen(outputFilename, "wb+");
+    if (!file) {
+        perror("Error opening file for writing");
+        exit(EXIT_FAILURE);
+    }
+    _writeTableToFileStream(table, file);
     fclose(file);
 }
 
@@ -388,7 +403,6 @@ int compareRecordsOnThird(const void* a, const void* b) {
 }
 
 
-
 // Sort one chunk in-place in memory
 void sortChunk(Chunk* chunk, int on_index) {
     if(on_index == 0) {
@@ -405,6 +419,7 @@ void sortChunk(Chunk* chunk, int on_index) {
     // TODO: Add ability to sort on any index, not just the first or second
     // There has to be a better way to do this....
 }
+
 
 Table* ExternalMergeSort(const Table* table, const char* outputFileName, const int on_index) {
     int numChunks = 0;
@@ -490,7 +505,6 @@ Table* ExternalMergeSort(const Table* table, const char* outputFileName, const i
 
 
 
-
 //  -----------= JOIN FUNCTIONS =----------------
 
 Record* mergeTwoRecords(const Record* left, const Record* right, const int left_on, const int right_on) {
@@ -525,6 +539,7 @@ Record* mergeTwoRecords(const Record* left, const Record* right, const int left_
     }
     return result;
 }
+
 
 Table* joinTables(Table* left, Table* right, const int left_on, const int right_on, const char* outputFileName) {
     FILE* output = fopen(outputFileName, "wb+");
@@ -587,21 +602,19 @@ Table* joinTables(Table* left, Table* right, const int left_on, const int right_
 
 
 
-
-
 // -----------= PRINT FUNCTIONS - FOR TESTING ONLY =----------------
 
 void printRecord(const Record* record) {
-    char line[record->numFields + 1];
+    char field[FIELD_LENGTH];
     for (int i = 0; i < record->numFields; i++) {
-        // Find blank characters and replace them with
-        strcpy(line, record->fields[i]);
-        char *space_ptr = strchr(line, ' ');
-        if (space_ptr != NULL) {
-            space_ptr = '\0';
+        // Find blank characters and replace them with \0 again
+        strcpy(field, record->fields[i]);
+        char *space_ptr = strchr(field, ' ');
+        bool has_weird_space_issue = (space_ptr != NULL);
+        if (has_weird_space_issue) {
+            *space_ptr = '\0';
         }
-
-        printf("%s", line);
+        printf("%s", field);
         if (i < record->numFields - 1) {
             printf(",");
         }
@@ -609,9 +622,11 @@ void printRecord(const Record* record) {
     printf("\n");
 }
 
+
 void printChunkInfo(const Chunk* chunk) {
     printf("-- N_Records: %d, N_Fields: %d, Capacity %d\n", chunk->numRecords, chunk->numFields, CHUNK_SIZE);
 }
+
 
 void printChunk(const Chunk* chunk) {
     for (int i = 0; i < chunk->numRecords; i++) {
@@ -620,13 +635,15 @@ void printChunk(const Chunk* chunk) {
     printChunkInfo(chunk);
 }
 
+
 void printTableInfo(Table* table) {
     printf("--Table at %p, File at %p N_Fields: %d\n", table, table->file, table->numFields);
 }
 
-// Print out an entire table
+
+// Print out a limited number of lines from table to console
 // CAUTION: THE TABLE CAN NO LONGER BE ACCESSED AFTER PRINTING
-void printTable(const Table* table) {
+void writeTableToConsoleLimited(Table* table) {
     int numPrinted = 0;
     readNextRecord(table);
     while(!table->endOfFile && numPrinted < MAX_PRINT_LINES) {
@@ -639,13 +656,12 @@ void printTable(const Table* table) {
     }
 }
 
-void printTableToConsole(const Table* table) {
-    readNextRecord(table);
-    while(!table->endOfFile) {
-        printRecord(&table->currentRecord);
-        readNextRecord(table);
-    }
+// Print out all number of lines from table to console
+// CAUTION: THE TABLE CAN NO LONGER BE ACCESSED AFTER PRINTING
+void writeTableToConsole(Table* table) {
+    _writeTableToFileStream(table, stdout);
 }
+
 
 
 int main(int argc, char* argv[]) {
@@ -675,8 +691,8 @@ int main(int argc, char* argv[]) {
 
     Table* join1234 = joinTables(sortedJoin123, sortedTable4, 3,  0, "output-base.csv");
 
-    //printTable(join1234);
-    printTableToConsole(join1234);
+    //writeTableToConsoleLimited(join1234);
+    writeTableToConsole(join1234);
 
 
     // Cleanup
@@ -702,6 +718,5 @@ int main(int argc, char* argv[]) {
     remove("s2.csv");
     remove("s3.csv");
     remove("s4.csv");
-
     return 0;
 }

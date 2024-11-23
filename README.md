@@ -1,4 +1,4 @@
-# Effienct Programs 2024w Task Implementation
+# Efficient Programs 2024w Task Implementation
 ## Group 14
 
 Members:

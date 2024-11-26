@@ -10,3 +10,10 @@
 
 # Ignore all data files
 *.csv
+
+# Ignore cmake stuff
+CMakeLists.txt
+.idea/
+cmake-build-debug/
+cmake-build-debug-wsl-toolchain/
+/token.txt

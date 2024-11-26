@@ -3,12 +3,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Put all implemented performance optimizations here (relative to base.c)
+// Currently implemented in this file
+// - None (base)
+// -
+// -
+// -
+// -
+// -
+// -
+
+
 #define FIELD_LENGTH 23  // 22 chars + string terminator
 #define CHUNK_SIZE 1000000    // Number of records per chunk
 #define BUFFER_SIZE 128      // Read/write buffer size
 #define MAX_NUM_CHUNKS 30  // Should have CHUNK_SIZE * MAX_NUM_CHUNKS >= 12 Mio.
 #define MAX_PRINT_LINES 25 // Only for testing, limit the number of lines printed out at once
-
 
 // Structure for record with no fixed number of fields
 typedef struct {

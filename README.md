@@ -44,6 +44,14 @@ gcc <file.c> -o <file>
 ```
 perf stat ./<file> /localtmp/efficient24/f1.csv /localtmp/efficient24/f2.csv /localtmp/efficient24/f3.csv /localtmp/efficient24/f4.csv >/dev/null
 ```
+### Test different optimizations on machine
+- Copy the shell script to your personal home folder on machine
+- Set the files array
+- Run using
+```
+./run_perf.sh
+```
+- Afterthat test results will be saved to combined_perf_output.txt
   
 # Documentation
 Put performance of _joinV1.c_ tested on g0 into log file _joinV1.txt_ in same directory

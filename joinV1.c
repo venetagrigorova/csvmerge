@@ -533,7 +533,7 @@ void _mergeTempTables(Table** tempTables, const char* outputFileName, const int 
 
 //  -----------= JOIN FUNCTIONS =----------------
 
-Record* mergeTwoRecords(const Record* left, const Record* right, const int left_on, const int right_on) {
+Record* _mergeTwoRecords(const Record* left, const Record* right, const int left_on, const int right_on) {
     const int numFields = left->numFields + right->numFields - 1;
     Record* result = malloc(sizeof(Record));
     int resultIndex = 0;
@@ -653,7 +653,7 @@ Table* joinTables(Table* left, Table* right, const int left_on, const int right_
             writeRecordToBuffer(&right->currentRecord, buffer, right_on);
 
             // Write the found joined records to output
-            Record* tempRecord = mergeTwoRecords(&left->currentRecord,
+            Record* tempRecord = _mergeTwoRecords(&left->currentRecord,
                                                  &right->currentRecord,
                                                  left_on, right_on);
             writeRecordToFile(tempRecord, output);
@@ -669,7 +669,7 @@ Table* joinTables(Table* left, Table* right, const int left_on, const int right_
                 // into the buffer. For each of the Records in the buffer output a join result of the current left
                 // row with one previous right row.
                 for(int i = 0; i < buffer->numRecords; i++) {
-                    Record* tempRecord = mergeTwoRecords(&left->currentRecord,
+                    Record* tempRecord = _mergeTwoRecords(&left->currentRecord,
                                                          &buffer->records[i],
                                                          left_on, right_on);
                     writeRecordToFile(tempRecord, output);

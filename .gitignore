@@ -1,1 +1,13 @@
+# To ignore all compiled code
+# Ignore all
+*
+
+# Unignore all with extensions
+!*.*
+
+# Unignore all dirs
+!*/
+
+# Ignore all data files
 *.csv
+

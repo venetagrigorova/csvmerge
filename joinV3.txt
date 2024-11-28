@@ -1,0 +1,444 @@
+Performance counter stats for 'joinV3 /localtmp/efficient24/f1.csv /localtmp/efficient24/f2.csv /localtmp/efficient24/f3.csv /localtmp/efficient24/f4.csv':
+
+          52260.00 msec task-clock                       #    0.990 CPUs utilized          
+              4551      context-switches                 #   87.084 /sec                   
+               117      cpu-migrations                   #    2.239 /sec                   
+            167130      page-faults                      #    3.198 K/sec                  
+      223022868045      cycles                           #    4.268 GHz                    
+      427327661145      instructions                     #    1.92  insn per cycle         
+       57875478772      branches                         #    1.107 G/sec                  
+        1384067639      branch-misses                    #    2.39% of all branches        
+     1115114285130      slots                            #   21.338 G/sec                  
+      210104875857      topdown-retiring                 #     16.4% Retiring              
+      900837422497      topdown-bad-spec                 #     70.2% Bad Speculation       
+       21637289273      topdown-fe-bound                 #      1.7% Frontend Bound        
+      150311353966      topdown-be-bound                 #     11.7% Backend Bound         
+
+      52.784426242 seconds time elapsed
+
+      49.275450000 seconds user
+       2.988451000 seconds sys
+
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls   s/call   s/call  name    
+ 26.45      5.52     5.52 1479235004     0.00     0.00  compareRecordsOnFields
+ 19.84      9.66     4.14 80000000     0.00     0.00  encodeField
+ 17.30     13.28     3.61 116269218     0.00     0.00  writeRecordToFile
+  9.15     15.19     1.91                             __umodti3
+  7.04     16.66     1.47 47495495     0.00     0.00  decodeField
+  6.13     17.94     1.28                             __udivti3
+  5.37     19.06     1.12 40000000     0.00     0.00  loadLineIntoRecord
+  1.82     19.44     0.38        5     0.08     0.87  _mergeTempTables
+  1.61     19.77     0.34                             compareRecordsOnZero
+  0.86     19.95     0.18                             main
+  0.81     20.12     0.17                             writeTableToFile
+  0.48     20.22     0.10       44     0.00     0.12  loadFileIntoChunk
+  0.46     20.32     0.10                             compareRecordsOnThird
+  0.43     20.41     0.09 54999636     0.00     0.00  initRecord
+  0.38     20.49     0.08        1     0.08     1.73  joinThreeTables
+  0.36     20.56     0.08 106770178     0.00     0.00  readNextRecord
+  0.24     20.61     0.05  8635510     0.00     0.00  _mergeThreeRecordsIntoRecord
+  0.22     20.66     0.05 102035915     0.00     0.00  _copyField
+  0.19     20.70     0.04       63     0.00     0.00  loadFileIntoTable
+  0.14     20.73     0.03 40000447     0.00     0.00  freeRecord
+  0.14     20.76     0.03  9499099     0.00     0.00  _mergeTwoRecords
+  0.14     20.79     0.03       45     0.00     0.00  freeChunk
+  0.07     20.80     0.02                             sanitizeLine
+  0.05     20.81     0.01  9999190     0.00     0.00  copyRecord
+  0.05     20.82     0.01  9999190     0.00     0.00  writeRecordToBuffer
+  0.05     20.83     0.01  6519944     0.00     0.00  emptyBuffer
+  0.05     20.84     0.01       53     0.00     0.04  _writeChunkToFileStream
+  0.05     20.85     0.01        4     0.00     2.69  ExternalMergeSort
+  0.05     20.86     0.01        1     0.01     0.43  _writeTableToFileStream
+  0.05     20.87     0.01        1     0.01     0.58  joinTables
+  0.02     20.88     0.01 16481506     0.00     0.00  recordFitsBuffer
+  0.02     20.88     0.01        3     0.00     0.00  createJoinBuffer
+  0.02     20.89     0.01                             frame_dummy
+  0.00     20.89     0.00  8635510     0.00     0.00  processThreeRecords
+  0.00     20.89     0.00       63     0.00     0.00  createTable
+  0.00     20.89     0.00       63     0.00     0.00  freeTable
+  0.00     20.89     0.00       53     0.00     0.00  sortChunk
+  0.00     20.89     0.00       53     0.00     0.04  writeChunkToFile
+  0.00     20.89     0.00       45     0.00     0.00  createChunk
+  0.00     20.89     0.00        3     0.00     0.00  freeJoinBuffer
+  0.00     20.89     0.00        1     0.00     0.43  writeTableToConsole
+
+ %         the percentage of the total running time of the
+time       program used by this function.
+
+cumulative a running sum of the number of seconds accounted
+ seconds   for by this function and those listed above it.
+
+ self      the number of seconds accounted for by this
+seconds    function alone.  This is the major sort for this
+           listing.
+
+calls      the number of times this function was invoked, if
+           this function is profiled, else blank.
+
+ self      the average number of milliseconds spent in this
+ms/call    function per call, if this function is profiled,
+	   else blank.
+
+ total     the average number of milliseconds spent in this
+ms/call    function and its descendents per call, if this
+	   function is profiled, else blank.
+
+name       the name of the function.  This is the minor sort
+           for this listing. The index shows the location of
+	   the function in the gprof listing. If the index is
+	   in parenthesis it shows where it would appear in
+	   the gprof listing if it were to be printed.
+
+Copyright (C) 2012-2020 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 0.05% of 20.89 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]     65.6    0.18   13.52                 main [1]
+                0.01   10.76       4/4           ExternalMergeSort [2]
+                0.08    1.65       1/1           joinThreeTables [13]
+                0.01    0.57       1/1           joinTables [17]
+                0.00    0.43       1/1           writeTableToConsole [19]
+                0.00    0.00       4/63          loadFileIntoTable [29]
+                0.00    0.00      10/63          freeTable [40]
+-----------------------------------------------
+                0.01   10.76       4/4           main [1]
+[2]     51.6    0.01   10.76       4         ExternalMergeSort [2]
+                0.10    5.33      44/44          loadFileIntoChunk [4]
+                0.30    3.16       4/5           _mergeTempTables [7]
+                0.00    1.77      44/53          writeChunkToFile [10]
+                0.03    0.03      44/45          freeChunk [26]
+                0.03    0.00      48/63          loadFileIntoTable [29]
+                0.00    0.00      44/63          freeTable [40]
+                0.00    0.00      44/106770178     readNextRecord [23]
+                0.00    0.00      44/53          sortChunk [41]
+-----------------------------------------------
+                0.06    0.00 17271020/1479235004     processThreeRecords [18]
+                0.07    0.00 19635509/1479235004     joinTables [17]
+                0.22    0.00 57999997/1479235004     joinThreeTables [13]
+                0.59    0.00 158276274/1479235004     compareRecordsOnThird [16]
+                1.79    0.00 479084128/1479235004     _mergeTempTables [7]
+                2.79    0.00 746968076/1479235004     compareRecordsOnZero [9]
+[3]     26.4    5.52    0.00 1479235004         compareRecordsOnFields [3]
+-----------------------------------------------
+                0.10    5.33      44/44          ExternalMergeSort [2]
+[4]     26.0    0.10    5.33      44         loadFileIntoChunk [4]
+                1.12    4.14 40000000/40000000     loadLineIntoRecord [5]
+                0.00    0.07      44/45          createChunk [24]
+-----------------------------------------------
+                1.12    4.14 40000000/40000000     loadFileIntoChunk [4]
+[5]     25.2    1.12    4.14 40000000         loadLineIntoRecord [5]
+                4.14    0.00 80000000/80000000     encodeField [8]
+-----------------------------------------------
+                0.30    0.12 9499099/116269218     _writeTableToFileStream [20]
+                0.30    0.12 9499099/116269218     joinTables [17]
+                1.51    0.62 48635510/116269218     _writeChunkToFileStream [11]
+                1.51    0.62 48635510/116269218     _mergeTempTables [7]
+[6]     24.3    3.61    1.47 116269218         writeRecordToFile [6]
+                1.47    0.00 47495495/47495495     decodeField [14]
+-----------------------------------------------
+                0.08    0.79       1/5           joinThreeTables [13]
+                0.30    3.16       4/5           ExternalMergeSort [2]
+[7]     20.7    0.38    3.95       5         _mergeTempTables [7]
+                1.51    0.62 48635510/116269218     writeRecordToFile [6]
+                1.79    0.00 479084128/1479235004     compareRecordsOnFields [3]
+                0.03    0.00 48635510/106770178     readNextRecord [23]
+-----------------------------------------------
+                4.14    0.00 80000000/80000000     loadLineIntoRecord [5]
+[8]     19.8    4.14    0.00 80000000         encodeField [8]
+-----------------------------------------------
+                                                 <spontaneous>
+[9]     15.0    0.34    2.79                 compareRecordsOnZero [9]
+                2.79    0.00 746968076/1479235004     compareRecordsOnFields [3]
+-----------------------------------------------
+                0.00    0.04       1/53          joinThreeTables [13]
+                0.00    0.32       8/53          processThreeRecords [18]
+                0.00    1.77      44/53          ExternalMergeSort [2]
+[10]    10.2    0.00    2.14      53         writeChunkToFile [10]
+                0.01    2.13      53/53          _writeChunkToFileStream [11]
+-----------------------------------------------
+                0.01    2.13      53/53          writeChunkToFile [10]
+[11]    10.2    0.01    2.13      53         _writeChunkToFileStream [11]
+                1.51    0.62 48635510/116269218     writeRecordToFile [6]
+-----------------------------------------------
+                                                 <spontaneous>
+[12]     9.1    1.91    0.00                 __umodti3 [12]
+-----------------------------------------------
+                0.08    1.65       1/1           main [1]
+[13]     8.3    0.08    1.65       1         joinThreeTables [13]
+                0.08    0.79       1/5           _mergeTempTables [7]
+                0.00    0.45 8635510/8635510     processThreeRecords [18]
+                0.22    0.00 57999997/1479235004     compareRecordsOnFields [3]
+                0.00    0.04       1/53          writeChunkToFile [10]
+                0.02    0.00 29000012/106770178     readNextRecord [23]
+                0.01    0.01 6779985/9999190     writeRecordToBuffer [31]
+                0.01    0.01 4567384/6519944     emptyBuffer [32]
+                0.01    0.00      10/63          loadFileIntoTable [29]
+                0.00    0.00       2/3           createJoinBuffer [35]
+                0.00    0.00 7238049/16481506     recordFitsBuffer [36]
+                0.00    0.00       1/45          createChunk [24]
+                0.00    0.00       1/45          freeChunk [26]
+                0.00    0.00       2/3           freeJoinBuffer [38]
+                0.00    0.00       9/63          freeTable [40]
+                0.00    0.00       1/53          sortChunk [41]
+-----------------------------------------------
+                1.47    0.00 47495495/47495495     writeRecordToFile [6]
+[14]     7.0    1.47    0.00 47495495         decodeField [14]
+-----------------------------------------------
+                                                 <spontaneous>
+[15]     6.1    1.28    0.00                 __udivti3 [15]
+-----------------------------------------------
+                                                 <spontaneous>
+[16]     3.3    0.10    0.59                 compareRecordsOnThird [16]
+                0.59    0.00 158276274/1479235004     compareRecordsOnFields [3]
+-----------------------------------------------
+                0.01    0.57       1/1           main [1]
+[17]     2.8    0.01    0.57       1         joinTables [17]
+                0.30    0.12 9499099/116269218     writeRecordToFile [6]
+                0.07    0.00 19635509/1479235004     compareRecordsOnFields [3]
+                0.03    0.02 9499099/9499099     _mergeTwoRecords [27]
+                0.01    0.00 19635512/106770178     readNextRecord [23]
+                0.00    0.01 3219205/9999190     writeRecordToBuffer [31]
+                0.00    0.00 1952560/6519944     emptyBuffer [32]
+                0.00    0.00 5764212/16481506     recordFitsBuffer [36]
+                0.00    0.00       1/3           createJoinBuffer [35]
+                0.00    0.00       1/63          loadFileIntoTable [29]
+                0.00    0.00       1/3           freeJoinBuffer [38]
+                0.00    0.00       1/54999636     initRecord [22]
+-----------------------------------------------
+                0.00    0.45 8635510/8635510     joinThreeTables [13]
+[18]     2.2    0.00    0.45 8635510         processThreeRecords [18]
+                0.00    0.32       8/53          writeChunkToFile [10]
+                0.05    0.02 8635510/8635510     _mergeThreeRecordsIntoRecord [25]
+                0.06    0.00 17271020/1479235004     compareRecordsOnFields [3]
+                0.00    0.00       8/53          sortChunk [41]
+-----------------------------------------------
+                0.00    0.43       1/1           main [1]
+[19]     2.1    0.00    0.43       1         writeTableToConsole [19]
+                0.01    0.42       1/1           _writeTableToFileStream [20]
+-----------------------------------------------
+                0.01    0.42       1/1           writeTableToConsole [19]
+[20]     2.1    0.01    0.42       1         _writeTableToFileStream [20]
+                0.30    0.12 9499099/116269218     writeRecordToFile [6]
+                0.01    0.00 9499100/106770178     readNextRecord [23]
+-----------------------------------------------
+                                                 <spontaneous>
+[21]     0.8    0.17    0.00                 writeTableToFile [21]
+-----------------------------------------------
+                0.00    0.00       1/54999636     joinTables [17]
+                0.00    0.00      63/54999636     createTable [39]
+                0.00    0.00     384/54999636     createJoinBuffer [35]
+                0.02    0.00 9999188/54999636     emptyBuffer [32]
+                0.07    0.00 45000000/54999636     createChunk [24]
+[22]     0.4    0.09    0.00 54999636         initRecord [22]
+-----------------------------------------------
+                0.00    0.00      44/106770178     ExternalMergeSort [2]
+                0.01    0.00 9499100/106770178     _writeTableToFileStream [20]
+                0.01    0.00 19635512/106770178     joinTables [17]
+                0.02    0.00 29000012/106770178     joinThreeTables [13]
+                0.03    0.00 48635510/106770178     _mergeTempTables [7]
+[23]     0.4    0.08    0.00 106770178         readNextRecord [23]
+-----------------------------------------------
+                0.00    0.00       1/45          joinThreeTables [13]
+                0.00    0.07      44/45          loadFileIntoChunk [4]
+[24]     0.4    0.00    0.07      45         createChunk [24]
+                0.07    0.00 45000000/54999636     initRecord [22]
+-----------------------------------------------
+                0.05    0.02 8635510/8635510     processThreeRecords [18]
+[25]     0.3    0.05    0.02 8635510         _mergeThreeRecordsIntoRecord [25]
+                0.02    0.00 34542040/102035915     _copyField [28]
+-----------------------------------------------
+                0.00    0.00       1/45          joinThreeTables [13]
+                0.03    0.03      44/45          ExternalMergeSort [2]
+[26]     0.3    0.03    0.03      45         freeChunk [26]
+                0.03    0.00 40000000/40000447     freeRecord [30]
+-----------------------------------------------
+                0.03    0.02 9499099/9499099     joinTables [17]
+[27]     0.2    0.03    0.02 9499099         _mergeTwoRecords [27]
+                0.02    0.00 47495495/102035915     _copyField [28]
+-----------------------------------------------
+                0.01    0.00 19998380/102035915     copyRecord [33]
+                0.02    0.00 34542040/102035915     _mergeThreeRecordsIntoRecord [25]
+                0.02    0.00 47495495/102035915     _mergeTwoRecords [27]
+[28]     0.2    0.05    0.00 102035915         _copyField [28]
+-----------------------------------------------
+                0.00    0.00       1/63          joinTables [17]
+                0.00    0.00       4/63          main [1]
+                0.01    0.00      10/63          joinThreeTables [13]
+                0.03    0.00      48/63          ExternalMergeSort [2]
+[29]     0.2    0.04    0.00      63         loadFileIntoTable [29]
+                0.00    0.00      63/63          createTable [39]
+-----------------------------------------------
+                0.00    0.00      63/40000447     freeTable [40]
+                0.00    0.00     384/40000447     freeJoinBuffer [38]
+                0.03    0.00 40000000/40000447     freeChunk [26]
+[30]     0.1    0.03    0.00 40000447         freeRecord [30]
+-----------------------------------------------
+                0.00    0.01 3219205/9999190     joinTables [17]
+                0.01    0.01 6779985/9999190     joinThreeTables [13]
+[31]     0.1    0.01    0.02 9999190         writeRecordToBuffer [31]
+                0.01    0.01 9999190/9999190     copyRecord [33]
+                0.00    0.00 3479245/16481506     recordFitsBuffer [36]
+-----------------------------------------------
+                0.00    0.00 1952560/6519944     joinTables [17]
+                0.01    0.01 4567384/6519944     joinThreeTables [13]
+[32]     0.1    0.01    0.02 6519944         emptyBuffer [32]
+                0.02    0.00 9999188/54999636     initRecord [22]
+-----------------------------------------------
+                0.01    0.01 9999190/9999190     writeRecordToBuffer [31]
+[33]     0.1    0.01    0.01 9999190         copyRecord [33]
+                0.01    0.00 19998380/102035915     _copyField [28]
+-----------------------------------------------
+                                                 <spontaneous>
+[34]     0.1    0.02    0.00                 sanitizeLine [34]
+-----------------------------------------------
+                0.00    0.00       1/3           joinTables [17]
+                0.00    0.00       2/3           joinThreeTables [13]
+[35]     0.0    0.01    0.00       3         createJoinBuffer [35]
+                0.00    0.00     384/54999636     initRecord [22]
+-----------------------------------------------
+                0.00    0.00 3479245/16481506     writeRecordToBuffer [31]
+                0.00    0.00 5764212/16481506     joinTables [17]
+                0.00    0.00 7238049/16481506     joinThreeTables [13]
+[36]     0.0    0.01    0.00 16481506         recordFitsBuffer [36]
+-----------------------------------------------
+                                                 <spontaneous>
+[37]     0.0    0.01    0.00                 frame_dummy [37]
+-----------------------------------------------
+                0.00    0.00       1/3           joinTables [17]
+                0.00    0.00       2/3           joinThreeTables [13]
+[38]     0.0    0.00    0.00       3         freeJoinBuffer [38]
+                0.00    0.00     384/40000447     freeRecord [30]
+-----------------------------------------------
+                0.00    0.00      63/63          loadFileIntoTable [29]
+[39]     0.0    0.00    0.00      63         createTable [39]
+                0.00    0.00      63/54999636     initRecord [22]
+-----------------------------------------------
+                0.00    0.00       9/63          joinThreeTables [13]
+                0.00    0.00      10/63          main [1]
+                0.00    0.00      44/63          ExternalMergeSort [2]
+[40]     0.0    0.00    0.00      63         freeTable [40]
+                0.00    0.00      63/40000447     freeRecord [30]
+-----------------------------------------------
+                0.00    0.00       1/53          joinThreeTables [13]
+                0.00    0.00       8/53          processThreeRecords [18]
+                0.00    0.00      44/53          ExternalMergeSort [2]
+[41]     0.0    0.00    0.00      53         sortChunk [41]
+-----------------------------------------------
+
+ This table describes the call tree of the program, and was sorted by
+ the total amount of time spent in each function and its children.
+
+ Each entry in this table consists of several lines.  The line with the
+ index number at the left hand margin lists the current function.
+ The lines above it list the functions that called this function,
+ and the lines below it list the functions this one called.
+ This line lists:
+     index	A unique number given to each element of the table.
+		Index numbers are sorted numerically.
+		The index number is printed next to every function name so
+		it is easier to look up where the function is in the table.
+
+     % time	This is the percentage of the `total' time that was spent
+		in this function and its children.  Note that due to
+		different viewpoints, functions excluded by options, etc,
+		these numbers will NOT add up to 100%.
+
+     self	This is the total amount of time spent in this function.
+
+     children	This is the total amount of time propagated into this
+		function by its children.
+
+     called	This is the number of times the function was called.
+		If the function called itself recursively, the number
+		only includes non-recursive calls, and is followed by
+		a `+' and the number of recursive calls.
+
+     name	The name of the current function.  The index number is
+		printed after it.  If the function is a member of a
+		cycle, the cycle number is printed between the
+		function's name and the index number.
+
+
+ For the function's parents, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the function into this parent.
+
+     children	This is the amount of time that was propagated from
+		the function's children into this parent.
+
+     called	This is the number of times this parent called the
+		function `/' the total number of times the function
+		was called.  Recursive calls to the function are not
+		included in the number after the `/'.
+
+     name	This is the name of the parent.  The parent's index
+		number is printed after it.  If the parent is a
+		member of a cycle, the cycle number is printed between
+		the name and the index number.
+
+ If the parents of the function cannot be determined, the word
+ `<spontaneous>' is printed in the `name' field, and all the other
+ fields are blank.
+
+ For the function's children, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the child into the function.
+
+     children	This is the amount of time that was propagated from the
+		child's children to the function.
+
+     called	This is the number of times the function called
+		this child `/' the total number of times the child
+		was called.  Recursive calls by the child are not
+		listed in the number after the `/'.
+
+     name	This is the name of the child.  The child's index
+		number is printed after it.  If the child is a
+		member of a cycle, the cycle number is printed
+		between the name and the index number.
+
+ If there are any cycles (circles) in the call graph, there is an
+ entry for the cycle-as-a-whole.  This entry shows who called the
+ cycle (as parents) and the members of the cycle (as children.)
+ The `+' recursive calls entry shows the number of function calls that
+ were internal to the cycle, and the calls entry for each member shows,
+ for that member, how many times it was called from other members of
+ the cycle.
+
+Copyright (C) 2012-2020 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Index by function name
+
+   [2] ExternalMergeSort      [35] createJoinBuffer       [29] loadFileIntoTable
+  [15] __udivti3              [39] createTable             [5] loadLineIntoRecord
+  [12] __umodti3              [14] decodeField             [1] main
+  [28] _copyField             [32] emptyBuffer            [18] processThreeRecords
+   [7] _mergeTempTables        [8] encodeField            [23] readNextRecord
+  [25] _mergeThreeRecordsIntoRecord [37] frame_dummy      [36] recordFitsBuffer
+  [27] _mergeTwoRecords       [26] freeChunk              [34] sanitizeLine
+  [11] _writeChunkToFileStream [38] freeJoinBuffer        [41] sortChunk
+  [20] _writeTableToFileStream [30] freeRecord            [10] writeChunkToFile
+   [3] compareRecordsOnFields [40] freeTable              [31] writeRecordToBuffer
+  [16] compareRecordsOnThird  [22] initRecord              [6] writeRecordToFile
+   [9] compareRecordsOnZero   [17] joinTables             [19] writeTableToConsole
+  [33] copyRecord             [13] joinThreeTables        [21] writeTableToFile
+  [24] createChunk             [4] loadFileIntoChunk

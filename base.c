@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #define FIELD_LENGTH 23  // 22 chars + string terminator
 #define CHUNK_SIZE 1000000    // Number of records per chunk
@@ -43,6 +44,13 @@ typedef struct {
     int numFields;
 } JoinBuffer;
 
+
+typedef struct { // Task structure for threads
+    FILE* file;
+    int numFields;
+    int on_index;
+    int chunkIndex;
+} SortTask;
 
 
 // -----------= CONSTUCTORS AND DESTRUCTORS =----------------
@@ -420,90 +428,99 @@ void sortChunk(Chunk* chunk, int on_index) {
     // There has to be a better way to do this....
 }
 
+void* sortChunkThread(void* arg) {
+    SortTask* task = (SortTask*)arg;
+    char tempFilename[32];
+    sprintf(tempFilename, "temp_%d.bin", task->chunkIndex);
 
-Table* ExternalMergeSort(const Table* table, const char* outputFileName, const int on_index) {
-    int numChunks = 0;
-    Table* tempTables[MAX_NUM_CHUNKS];
+    Chunk* chunk = loadFileIntoChunk(task->file, task->numFields);
+    sortChunk(chunk, task->on_index);
+    writeChunkToFile(chunk, tempFilename);
+    freeChunk(chunk);
 
-    // Process table as chunks
-    // 1) Split off chunk from table
-    // 2) Sort in-memory
-    // 3) Write as temp. file to disc
-    // 4) Remove chunk from memory
-    while(!feof(table->file) && numChunks < MAX_NUM_CHUNKS) {
-        // Create new chunk file
-        char tempFilename[32];
-        sprintf(tempFilename, "temp_%d.bin", numChunks);
-
-        Chunk* chunk = loadFileIntoChunk(table->file, table->numFields);
-        sortChunk(chunk, on_index);
-        writeChunkToFile(chunk, tempFilename);
-        freeChunk(chunk);
-
-        tempTables[numChunks] = loadFileIntoTable(tempFilename, table->numFields);
-        readNextRecord(tempTables[numChunks]);
-
-        numChunks++;
-    }
-
-    // Combine temp Tables
-    // 1) Compare the current records of all active temp tables
-    // 2) Find out which is the smallest
-    // 3) Print that record into the output file
-    // 4) Repeat until all records are processed
-    FILE* output = fopen(outputFileName, "wb+");
-    if(!output) {
-        perror("Error opening output file for writing");
-        exit(EXIT_FAILURE);
-    }
-    while(true) {
-        int numRemainingChunks = numChunks;
-        int minRecordIndex = 0;
-        if(tempTables[0]->endOfFile) numRemainingChunks--;
-
-        for(int i = 1; i < numChunks; i++) {
-            int difference = compareRecordsOnFields(&tempTables[i]->currentRecord,
-                                            &tempTables[minRecordIndex]->currentRecord,
-                                            on_index, on_index);
-            // Replace if value is smaller and Table valid
-            if((difference < 0) & (!tempTables[i]->endOfFile)) {
-                minRecordIndex = i;
-            }
-            // Needed only if first temp file is no longer valid
-            if((!tempTables[i]->endOfFile) & (tempTables[0]->endOfFile) & (minRecordIndex==0)) {
-                minRecordIndex = i;
-            }
-            // Check if any tables are still valid
-            if(tempTables[i]->endOfFile) {
-                numRemainingChunks--;
-            }
-        }
-        // Breakout condition
-        if(numRemainingChunks == 0) {
-            break;
-        }
-        writeRecordToFile(&(tempTables[minRecordIndex]->currentRecord), output);
-        readNextRecord(tempTables[minRecordIndex]);
-    }
-    fclose(output);
-
-    // Cleanup
-    for(int i = 0; i < numChunks; i++) {
-        freeTable(tempTables[i]);
-
-        char tempFilename[32];
-        sprintf(tempFilename, "temp_%d.bin", i);
-        if(remove(tempFilename)!=0) {
-            perror("Error deleting file");
-        };
-
-    }
-
-    Table* outputTable = loadFileIntoTable(outputFileName, table->numFields);
-    return outputTable;
+    return NULL;
 }
 
 
+Table* ExternalMergeSort(const Table* table, const char* outputFileName, const int on_index) {
+    int numChunks = 0;
+    pthread_t threads[MAX_NUM_CHUNKS];
+    SortTask tasks[MAX_NUM_CHUNKS];
+
+    // Process the table in chunks, each chunk is sorted in a separate thread
+    while (!feof(table->file) && numChunks < MAX_NUM_CHUNKS) {
+        // Prepare task details for the current chunk
+        tasks[numChunks].file = table->file;
+        tasks[numChunks].numFields = table->numFields;
+        tasks[numChunks].on_index = on_index; // Field index to sort on
+        tasks[numChunks].chunkIndex = numChunks;
+
+        // Create a thread to sort the current chunk
+        pthread_create(&threads[numChunks], NULL, sortChunkThread, &tasks[numChunks]);
+        numChunks++;
+    }
+
+    // Wait for all sorting threads to complete
+    for (int i = 0; i < numChunks; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    // Open the output file for writing the merged and sorted results
+    FILE* output = fopen(outputFileName, "wb+");
+    if (!output) {
+        perror("Error opening output file for writing");
+        exit(EXIT_FAILURE);
+    }
+
+    // Load sorted chunks from temporary files into memory
+    Table* tempTables[MAX_NUM_CHUNKS];
+    for (int i = 0; i < numChunks; i++) {
+        char tempFilename[32];
+        sprintf(tempFilename, "temp_%d.bin", i);
+        tempTables[i] = loadFileIntoTable(tempFilename, table->numFields);
+        readNextRecord(tempTables[i]); // Read the first record from each table
+    }
+
+    // Perform a k-way merge to combine sorted chunks
+    while (true) {
+        int minRecordIndex = -1; // Index of the current minimum record across chunks
+
+        // Find the smallest record among the chunks
+        for (int i = 0; i < numChunks; i++) {
+            if (!tempTables[i]->endOfFile && (minRecordIndex == -1 ||
+                compareRecordsOnFields(&tempTables[i]->currentRecord,
+                                       &tempTables[minRecordIndex]->currentRecord, on_index, on_index) < 0)) {
+                minRecordIndex = i;
+            }
+        }
+
+        // If no more records are available, exit the merge loop
+        if (minRecordIndex == -1) {
+            break;
+        }
+
+        // Write the smallest record to the output file
+        writeRecordToFile(&tempTables[minRecordIndex]->currentRecord, output);
+
+        // Advance to the next record in the chunk containing the smallest record
+        readNextRecord(tempTables[minRecordIndex]);
+    }
+
+    fclose(output);
+
+    // Clean up
+    for (int i = 0; i < numChunks; i++) {
+        freeTable(tempTables[i]);
+        char tempFilename[32];
+        sprintf(tempFilename, "temp_%d.bin", i);
+        if (remove(tempFilename) != 0) {
+            perror("Error deleting file");
+        }
+    }
+
+    // Load and return the final sorted table from the output file
+    return loadFileIntoTable(outputFileName, table->numFields);
+}
 
 //  -----------= JOIN FUNCTIONS =----------------
 
@@ -678,22 +695,17 @@ int main(int argc, char* argv[]) {
     Table* sortedTable1 = ExternalMergeSort(table1, "s1.csv", 0);
     Table* sortedTable2 = ExternalMergeSort(table2, "s2.csv", 0);
 
-    Table* join12 = joinTables(sortedTable1, sortedTable2, 0,  0, "j12.csv");
-
+    Table* join12 = joinTables(sortedTable1, sortedTable2, 0, 0, "j12.csv");
 
     Table* sortedTable3 = ExternalMergeSort(table3, "s3.csv", 0);
-
-    Table* join123 = joinTables(join12, sortedTable3, 0,  0, "j123.csv");
-
+    Table* join123 = joinTables(join12, sortedTable3, 0, 0, "j123.csv");
 
     Table* sortedTable4 = ExternalMergeSort(table4, "s4.csv", 0);
     Table* sortedJoin123 = ExternalMergeSort(join123, "s123.csv", 3);
 
-    Table* join1234 = joinTables(sortedJoin123, sortedTable4, 3,  0, "output-base.csv");
+    Table* join1234 = joinTables(sortedJoin123, sortedTable4, 3, 0, "output-base.csv");
 
-    //writeTableToConsoleLimited(join1234);
     writeTableToConsole(join1234);
-
 
     // Cleanup
     freeTable(join1234);

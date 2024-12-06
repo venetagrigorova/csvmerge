@@ -50,7 +50,7 @@ gcc -pg -O <file.c> -lm -o <fileprof>
 <fileprof> /localtmp/efficient24/f1.csv /localtmp/efficient24/f2.csv /localtmp/efficient24/f3.csv /localtmp/efficient24/f4.csv >/dev/null
 gprof <fileprof>
 ```
-Here <fileprof> can be any name without file ending, but i suggest using NAMEprof if the file is called NAME.c 
+Here \<fileprof\> can be any name without file ending, but i suggest using NAMEprof if the file is called NAME.c 
 ### Test different optimizations on machine
 - Copy the shell script to your personal home folder on machine
 - Set the files array

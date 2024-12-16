@@ -343,16 +343,19 @@ Table* loadFileIntoTable(const char* inputFileName, const int numFields) {
 void writeRecordToFile(const Record* record, FILE* output_file) {
     char field[FIELD_LENGTH];
     for (int i = 0; i < record->numFields; i++) {
-        int j = 0;
         // Find blank characters and replace them with \0 again
         strcpy(field, record->fields[i]);
-        for(j; field[j] != '\0' & j<FIELD_LENGTH; j++) {
-            if(field[j] == ' ') {
-                field[j] = '\0';
-            }
+        int len = strlen(field);
+        char *result = memchr(field, ' ', strlen(field));
 
+        if (result != NULL) {
+            int index = result - field;
+            field[index] = '\0';
+            len = index++;
         }
-        fwrite(field, sizeof(char), j, output_file);
+
+        fwrite(field, sizeof(char), len, output_file);
+
         if (i < record->numFields - 1) {
             fputc(44, output_file); // put a comma after the field
         }

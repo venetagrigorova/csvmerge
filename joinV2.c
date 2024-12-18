@@ -7,7 +7,7 @@
 // Put all implemented performance optimizations here (relative to base.c)
 // Currently implemented in this file
 // - Threeway merge join implemented
-// - created utility functions _copyField, _mergeTempTables
+// - created utility functions copyField, _mergeTempTables
 // - Remove numFields from Record struct, thus mostly passed as input parameter
 // -
 // -
@@ -85,7 +85,7 @@ void freeRecord(Record* record, const int numFields) {
     free(record->fields);
 }
 
-void _copyField(const Record* dest, const Record* source, const int dest_index, const int source_index) {
+void copyField(const Record* dest, const Record* source, const int dest_index, const int source_index) {
     strcpy(dest->fields[dest_index], source->fields[source_index]);
 }
 
@@ -93,7 +93,7 @@ void _copyField(const Record* dest, const Record* source, const int dest_index, 
 void copyRecord(Record* dest, const Record* source, const int numFields) {
     // Copy all fields
     for (int i = 0; i < numFields; i++) {
-        _copyField(dest, source, i, i);
+        copyField(dest, source, i, i);
     }
 }
 
@@ -529,20 +529,20 @@ void _mergeTempTables(Table** tempTables, const char* outputFileName, const int 
 
 void _mergeTwoRecords(const Record* left, const Record* right,
                         const Record* target) {
-    _copyField(target, left, 0, 3 ); // D
-    _copyField(target, left, 1, 0); // A
-    _copyField(target, left, 2, 1); // B
-    _copyField(target, left, 3, 2); // C
-    _copyField(target, right, 4, 1); // E
+    copyField(target, left, 0, 3 ); // D
+    copyField(target, left, 1, 0); // A
+    copyField(target, left, 2, 1); // B
+    copyField(target, left, 3, 2); // C
+    copyField(target, right, 4, 1); // E
 }
 
 void _mergeThreeRecordsIntoRecord(const Record* left, const Record* middle, const Record* right,
                                   const Record* target)
 {
-    _copyField(target, left, 0, 0 ); // A
-    _copyField(target, left, 1, 1);  // B
-    _copyField(target, middle, 2, 1); // C
-    _copyField(target, right, 3, 1);   //D
+    copyField(target, left, 0, 0 ); // A
+    copyField(target, left, 1, 1);  // B
+    copyField(target, middle, 2, 1); // C
+    copyField(target, right, 3, 1);   //D
 }
 
 // Just a wrapper for _mergeThreeRecordsIntoRecord

@@ -10,7 +10,7 @@ Members:
 -Clone repository to your machine
 -Compile file using 
 ```
-gcc <file.c> -o <file>
+gcc <file.c> -o <file> -O2
 ```
 - Run using 
 ```

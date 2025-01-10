@@ -7,7 +7,7 @@
 // Put all implemented performance optimizations here (relative to base.c)
 // Currently implemented in this file
 // - Threeway merge join implemented
-// - created utility functions _copyField, _mergeTempTables
+// - created utility functions copyField, _mergeTempTables
 // -
 // -
 // -
@@ -87,7 +87,7 @@ void freeRecord(Record* record) {
     free(record->fields);
 }
 
-void _copyField(const Record* dest, const Record* source, const int dest_index, const int source_index) {
+void copyField(const Record* dest, const Record* source, const int dest_index, const int source_index) {
     strcpy(dest->fields[dest_index], source->fields[source_index]);
 }
 
@@ -99,7 +99,7 @@ void copyRecord(Record* dest, const Record* source) {
         exit(EXIT_FAILURE);
     }
     for (int i = 0; i < source->numFields; i++) {
-        _copyField(dest, source, i, i);
+        copyField(dest, source, i, i);
     }
 }
 
@@ -547,19 +547,19 @@ Record* _mergeTwoRecords(const Record* left, const Record* right, const int left
         exit(EXIT_FAILURE);
     }
 
-    _copyField(result, left, 0, left_on); // Result always starts with field that we are joining on
+    copyField(result, left, 0, left_on); // Result always starts with field that we are joining on
     resultIndex++;
     // Copy left fields (expect join field)
     for(int i = 0; i < left->numFields; i++) {
         if(i!=left_on) {
-            _copyField(result, left, resultIndex, i);
+            copyField(result, left, resultIndex, i);
             resultIndex++;
         }
     }
     // Copy right fields (except join field)
     for(int i = 0; i < right->numFields; i++) {
         if(i!=right_on) {
-            _copyField(result, right, resultIndex, i);
+            copyField(result, right, resultIndex, i);
             resultIndex++;
         }
     }
@@ -571,26 +571,26 @@ void _mergeThreeRecordsIntoRecord(const Record* left, const Record* middle, cons
                                   const Record* target)
 {
     int resultIndex = 0;
-    _copyField(target, left, resultIndex, left_on); // Result always starts with field that we are joining on
+    copyField(target, left, resultIndex, left_on); // Result always starts with field that we are joining on
     resultIndex++;
     // Copy left fields (expect join field)
     for(int i = 0; i < left->numFields; i++) {
         if(i!=left_on) {
-            _copyField(target, left, resultIndex, i );
+            copyField(target, left, resultIndex, i );
             resultIndex++;
         }
     }
     // Copy middle fields (except join field)
     for(int i = 0; i < middle->numFields; i++) {
         if(i!=middle_on) {
-            _copyField(target, middle, resultIndex, i);
+            copyField(target, middle, resultIndex, i);
             resultIndex++;
         }
     }
     // Copy right fields (except join field)
     for(int i = 0; i < right->numFields; i++) {
         if(i!=right_on) {
-            _copyField(target, right, resultIndex, i);
+            copyField(target, right, resultIndex, i);
             resultIndex++;
         }
     }

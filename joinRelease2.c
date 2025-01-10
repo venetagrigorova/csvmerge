@@ -10,12 +10,12 @@
 // - created utility functions copyField, _mergeTempTables
 // - Remove numFields from Record struct, thus mostly passed as input parameter
 // - Used INT128 encoding, major overhauls to low-level functions
-// -
-// -
+// - Used "static inline" on all minor utility functions
+// - Store Fields of one chunk continuously in memory using chunk->memoryBlock
 // -
 
 #define FIELD_LENGTH 23  // 22 chars + string terminator
-#define CHUNK_SIZE 1000000    // Number of records per chunk
+#define CHUNK_SIZE 500001    // Number of records per chunk
 #define BUFFER_SIZE 128      // Read/write buffer size
 #define MAX_NUM_CHUNKS 30  // Should have CHUNK_SIZE * MAX_NUM_CHUNKS >= 12 Mio.
 #define MAX_PRINT_LINES 25 // Only for testing, limit the number of lines printed out at once
@@ -32,6 +32,7 @@ typedef struct {
 // Has an array of records, and number of records and fields of each record
 typedef struct {
     Record* records;
+    INT_128* memory_block;
     int numRecords;
     int numFields;
 } Chunk;
@@ -75,15 +76,17 @@ void initRecord(Record* record, const int numFields) {
 
 
 // Free memory allocated for a record
-void freeRecord(Record* record) {
-    free(record->fields);
+static inline void freeRecord(Record* record) {
+    if(!record) return;
+    if(record->fields) free(record->fields);
     if(record) record = NULL;
 }
 
-void copyField(const Record* dest, const Record* source, const int dest_index, const int source_index) {
+static inline void copyField(const Record* dest, const Record* source, const int dest_index, const int source_index) {
     dest->fields[dest_index] = source->fields[source_index];
 }
 
+/* Currently unused
 // Copy to destination record from source record, assuming they have the same number of fields
 void copyRecord(const Record* dest, const Record* source, const int numFields) {
     // Copy all fields
@@ -91,37 +94,50 @@ void copyRecord(const Record* dest, const Record* source, const int numFields) {
         copyField(dest, source, i, i);
     }
 }
-
+*/
 
 // Create and initialize a chunk
 Chunk* createChunk(const int numRecords, const int numFields) {
-    Chunk* chunk = (Chunk*)malloc(sizeof(Chunk));
-    Record* records = (Record*)malloc(numRecords * sizeof(Record));
-    if (!chunk | !records) {
+    Chunk* chunk = malloc(sizeof(Chunk));
+    Record* records = malloc(numRecords * sizeof(Record));
+    // Allocate a contiguous block of memory for all fields of all records
+    INT_128* fieldBlock = malloc(numRecords * numFields * sizeof(INT_128));
+
+    if (!chunk | !records | !fieldBlock) {
         perror("Failed to allocate memory for chunk");
         exit(EXIT_FAILURE);
     }
+
+    // Loop unrolling here?
     for (int i = 0; i < numRecords; i++) {
-        initRecord(&records[i], numFields);
+        records[i].fields = fieldBlock + i * numFields;
+        // Initialize fields to zero
+        /* We can skip this if we never access un-initialized records
+        for (int j = 0; j < numFields; j++) {
+            records[i].fields[j] = 0;
+        }
+        */
     }
     chunk->records = records;
     chunk->numRecords = 0;
+    chunk->memory_block = fieldBlock;
     chunk->numFields = numFields;
     return chunk;
 }
 
 
-void freeChunk(Chunk* chunk) {
-    for (int i = 0; i < chunk->numRecords; i++) {
-        freeRecord(&chunk->records[i]);
-    }
-    free(chunk->records);
-    if(chunk) {
-        free(chunk);
-        chunk = NULL;
-    }
-}
 
+static void freeChunk(Chunk* chunk) {
+    if (!chunk) return;
+    if (chunk->memory_block != NULL) {
+        free(chunk->memory_block);
+    }
+    if (chunk->records != NULL) {
+        free(chunk->records);
+    }
+    free(chunk);
+    chunk = NULL;
+}
 
 // Create and initialize a table
 Table* createTable(const int numFields) {
@@ -142,7 +158,7 @@ Table* createTable(const int numFields) {
 
 
 // Free memory allocated for a table
-void freeTable(Table* table) {
+static inline void freeTable(Table* table) {
     freeRecord(&table->currentRecord);
     if(table->file)    fclose(table->file);
     if(table) {
@@ -174,8 +190,8 @@ JoinBuffer* createJoinBuffer(const int numFields) {
 }
 
 
-bool recordFitsBuffer(const Record* record, const int key_index, const JoinBuffer* buffer) {
-    if(buffer->numRecords == 0) {
+static inline bool recordFitsBuffer(const Record* record, const int key_index, const JoinBuffer* buffer) {
+    if(buffer && buffer->numRecords == 0) {
         return false;
     }
     int compare = (buffer->key == record->fields[key_index]);
@@ -183,7 +199,7 @@ bool recordFitsBuffer(const Record* record, const int key_index, const JoinBuffe
 }
 
 
-void writeRecordToBuffer(Record* record, JoinBuffer* buffer, const int right_on) {
+void writeRecordToBuffer(const Record* record, JoinBuffer* buffer, const int right_on) {
     if(buffer->numRecords == 0) {
         buffer->key = record->fields[right_on];
     }
@@ -195,21 +211,25 @@ void writeRecordToBuffer(Record* record, JoinBuffer* buffer, const int right_on)
         perror("Tried to write record to incompatible buffer");
         exit(EXIT_FAILURE);
     }
-    copyRecord(&buffer->records[buffer->numRecords], record, buffer->numFields);
+    for (int i = 0; i < buffer->numFields; i++) {
+        copyField(&buffer->records[buffer->numRecords], record, i, i);
+    }
     buffer->numRecords++;
 }
 
 
-void emptyBuffer(JoinBuffer* buffer) {
+static inline void emptyBuffer(JoinBuffer* buffer) {
     buffer->key = 0;
+    /* this might not actually be nescessary
     for (int i = 0; i < buffer->numRecords; i++) {
         initRecord(&buffer->records[i], buffer->numFields);
     }
+    */
     buffer->numRecords = 0;
 }
 
 
-void freeJoinBuffer(JoinBuffer* buffer) {
+static inline void freeJoinBuffer(JoinBuffer* buffer) {
     for (int i = 0; i < BUFFER_SIZE; i++) {
         freeRecord(&buffer->records[i]);
     }
@@ -224,7 +244,7 @@ void freeJoinBuffer(JoinBuffer* buffer) {
 
 // -----------= INPUT FROM FILE INTO TABLE/CHUNK =----------------
 
-INT_128 encodeField(const char* field) {
+static INT_128 encodeField(const char* field) {
     INT_128 result = 0;
     INT_128 offset = 1;
     char character;
@@ -235,10 +255,11 @@ INT_128 encodeField(const char* field) {
             add = character - 'A' + 1;  // 'A' -> 1, 'B' -> 2, ..., 'Z' -> 26
         } else if (character >= '0' && character <= '9') {
             add = character - '0' + 27; // '0' -> 27, '1' -> 28, ..., '9' -> 36
-        } else if (character >= 'a' && character <= 'q') {
+        } else if (character >= 'a' && character <= 'z') {
             add = character - 'a' + 37; // 'a' -> 37, ..., 'q' -> 53
+            if(add >= MAX_NUM_CHARACTERS) add = MAX_NUM_CHARACTERS - 1;
         } else if (character == '\0') {
-            add = 54;           // '\0' -> 54
+            add = MAX_NUM_CHARACTERS - 1;           // '\0' -> 54
         } else add = 0;  // any unknown characters -> 0
         result = result + add * offset;
         offset = offset * MAX_NUM_CHARACTERS;
@@ -248,7 +269,7 @@ INT_128 encodeField(const char* field) {
 
 // decodes Int128 into output string and returns the length (not including terminating null but
 // possibly including custom null character in string)
-int decodeField(INT_128 code, char* output) {
+static int decodeField(INT_128 code, char* output) {
     INT_128 value = code;
     unsigned int remainder = 0;
     int len = 0;
@@ -258,9 +279,9 @@ int decodeField(INT_128 code, char* output) {
             output[len] =  'A' + (remainder - 1);  // 1 -> 'A', 2 -> 'B', ..., 26 -> 'Z'
         } else if (remainder >= 27 && remainder <= 36) {
             output[len] =  '0' + (remainder - 27); // 27 -> '0', ..., 36 -> '9'
-        } else if (remainder >= 37 && remainder <= 53) {
+        } else if (remainder >= 37 && remainder <= MAX_NUM_CHARACTERS-2) {
             output[len] = 'a' + (remainder - 37); // 37 -> 'a', ..., 53 -> 'q'
-        } else if (remainder == 54) {
+        } else if (remainder == MAX_NUM_CHARACTERS-1) {
             output[len] = '\0';             // 54 -> '\0'
         } else output[len] = '?';
         value = value / MAX_NUM_CHARACTERS;
@@ -274,13 +295,8 @@ int decodeField(INT_128 code, char* output) {
     return len;
 }
 
-void sanitizeLine(char *line, const int numFields) {
-    // Unnesscessary due to encoding
-    return;
-}
 
-
-void loadLineIntoRecord(const char* line, const Record* record, const int numFields) {
+static inline void loadLineIntoRecord(const char* line, const Record* record, const int numFields) {
     int field_start = 0;
     int current_field = 0;
     for(int i = 0; i < numFields * FIELD_LENGTH & line[i] != '\n'; i++) {
@@ -297,7 +313,7 @@ void loadLineIntoRecord(const char* line, const Record* record, const int numFie
 
 
 // Used in Table: Read a single record to replace the current record
-void readNextRecord(Table* table) {
+static inline void readNextRecord(Table* table) {
     if(table->endOfFile == true) {
         perror("No more records in file");
         exit(EXIT_FAILURE);
@@ -386,7 +402,7 @@ Chunk* loadFileIntoChunk(FILE* inputFile, const int numFields, bool is_encoded) 
 
 Table* loadFileIntoTable(const char* inputFileName, const int numFields, bool file_is_encoded) {
     Table* table = createTable(numFields);
-    table->file = fopen(inputFileName, "r");
+    table->file = fopen(inputFileName, "rb");
     table->file_is_encoded = file_is_encoded;
     if(!table->file) {
         perror("Failed to open file");
@@ -400,7 +416,7 @@ Table* loadFileIntoTable(const char* inputFileName, const int numFields, bool fi
 // -----------= OUTPUT FUNCTIONS =----------------
 
 // Write a single record to file
-void writeRecordToFile(const Record* record, FILE* output_file, const int numFields, bool encode_file) {
+static inline void writeRecordToFile(const Record* record, FILE* output_file, const int numFields, bool encode_file) {
     // Write encoded
     if(encode_file) {
         INT_128 value = 0;
@@ -425,7 +441,7 @@ void writeRecordToFile(const Record* record, FILE* output_file, const int numFie
     fputc(012,output_file); // put a newline after the line
 }
 
-void _writeChunkToFileStream(const Chunk* chunk, FILE* file) {
+static inline void writeChunkToFileStream(const Chunk* chunk, FILE* file) {
     for (int i = 0; i < chunk->numRecords; i++) {
         writeRecordToFile(&chunk->records[i], file, chunk->numFields, true);
     }
@@ -438,11 +454,11 @@ void writeChunkToFile(const Chunk* chunk, const char* outputFilename) {
         perror("Error opening file for writing");
         exit(EXIT_FAILURE);
     }
-    _writeChunkToFileStream(chunk, file);
+    writeChunkToFileStream(chunk, file);
     fclose(file);
 }
 
-void _writeTableToFileStream(Table* table, FILE* file, bool encode_file) {
+static inline void writeTableToFileStream(Table* table, FILE* file, bool encode_file) {
     readNextRecord(table);
     while(!feof(table->file)) {
         writeRecordToFile(&table->currentRecord, file, table->numFields, encode_file);
@@ -457,7 +473,7 @@ void writeTableToFile(Table* table, const char* outputFilename, bool encode_file
         perror("Error opening file for writing");
         exit(EXIT_FAILURE);
     }
-    _writeTableToFileStream(table, file, encode_file);
+    writeTableToFileStream(table, file, encode_file);
     fclose(file);
 }
 
@@ -466,19 +482,21 @@ void writeTableToFile(Table* table, const char* outputFilename, bool encode_file
 // -----------= SORTING FUNCTIONS =----------------
 
 // Compare records based on left and right field
-int compareRecordsOnFields(const void* left, const void* right, const int left_on, const int right_on) {
+static inline int compareRecordsOnFields(const void* left, const void* right, const int left_on, const int right_on) {
     const Record* r1 = (const Record*)left;
     const Record* r2 = (const Record*)right;
-    if(r1->fields[left_on] < r2->fields[right_on])  return -1;
-    if(r1->fields[left_on] > r2->fields[right_on])  return 1;
-    return 0;
+    int cmp = 0;
+    if(r1->fields[left_on] > r2->fields[right_on])  cmp = 1;
+    if(r1->fields[left_on] < r2->fields[right_on])  cmp = -1;
+
+    return cmp;
 }
 
-int compareRecordsOnZero(const void* a, const void* b) {
+static inline int compareRecordsOnZero(const void* a, const void* b) {
     return compareRecordsOnFields(a, b, 0, 0);
 }
 
-int compareRecordsOnThird(const void* a, const void* b) {
+static inline int compareRecordsOnThird(const void* a, const void* b) {
     return compareRecordsOnFields(a, b, 3, 3);
 }
 
@@ -498,6 +516,46 @@ void sortChunk(Chunk* chunk, int on_index) {
     // TODO: Change this to a stable sorting algorithm that keeps equal elements in the same order
     // TODO: Add ability to sort on any index, not just the first or second
     // There has to be a better way to do this....
+}
+
+void _mergeTempTables(Table** tempTables, const char* outputFileName, const int numChunks, const int on_index) {
+    FILE* output = fopen(outputFileName, "wb+");
+    if(!output) {
+        perror("Error opening output file for writing");
+        exit(EXIT_FAILURE);
+    }
+    // Combine temp Tables
+    // 1) Compare the current records of all active temp tables
+    // 2) Find out which is the smallest
+    // 3) Print that record into the output file
+    // 4) Repeat until all records are processed
+    int numFields = tempTables[0]->numFields;
+    while (true) {
+        int minRecordIndex = -1; // Index of the current minimum record across chunks
+
+        // Find the smallest record among the chunks
+        for (int i = 0; i < numChunks; i++) {
+            if (!tempTables[i]->endOfFile && (minRecordIndex == -1 ||
+                compareRecordsOnFields(&tempTables[i]->currentRecord,
+                                       &tempTables[minRecordIndex]->currentRecord,
+                                       on_index, on_index
+                                       ) < 0)) {
+                minRecordIndex = i;
+                                       }
+        }
+
+        // If no more records are available, exit the merge loop
+        if (minRecordIndex == -1) {
+            break;
+        }
+
+        // Write the smallest record to the output file
+        writeRecordToFile(&tempTables[minRecordIndex]->currentRecord, output, numFields, true);
+
+        // Advance to the next record in the chunk containing the smallest record
+        readNextRecord(tempTables[minRecordIndex]);
+    }
+    fclose(output);
 }
 
 
@@ -527,13 +585,7 @@ Table* ExternalMergeSort(const Table* table, const char* outputFileName, const i
     }
 
     _mergeTempTables(tempTables, outputFileName, numChunks, on_index);
-    // Moved this loop into another function to use it in another part of the code
-    /*
-    while(true) {
-        int numRemainingChunks = numChunks;
-        ......
-    }
-    */
+
     char tempFilename[32];
     for(int i = 0; i < numChunks; i++) {
         freeTable(tempTables[i]);
@@ -547,53 +599,10 @@ Table* ExternalMergeSort(const Table* table, const char* outputFileName, const i
     return outputTable;
 }
 
-void _mergeTempTables(Table** tempTables, const char* outputFileName, const int numChunks, const int on_index) {
-    FILE* output = fopen(outputFileName, "wb+");
-    if(!output) {
-        perror("Error opening output file for writing");
-        exit(EXIT_FAILURE);
-    }
-    // Combine temp Tables
-    // 1) Compare the current records of all active temp tables
-    // 2) Find out which is the smallest
-    // 3) Print that record into the output file
-    // 4) Repeat until all records are processed
-    while(true) {
-        int numRemainingChunks = numChunks;
-        int minRecordIndex = 0;
-        if(tempTables[0]->endOfFile) numRemainingChunks--;
-
-        for(int i = 1; i < numChunks; i++) {
-            int difference = compareRecordsOnFields(&tempTables[i]->currentRecord,
-                                            &tempTables[minRecordIndex]->currentRecord,
-                                            on_index, on_index);
-            // Replace if value is smaller and Table valid
-            if((difference < 0) & (!tempTables[i]->endOfFile)) {
-                minRecordIndex = i;
-            }
-            // Needed only if first temp file is no longer valid
-            if((!tempTables[i]->endOfFile) & (tempTables[0]->endOfFile) & (minRecordIndex==0)) {
-                minRecordIndex = i;
-            }
-            // Check if any tables are still valid
-            if(tempTables[i]->endOfFile) {
-                numRemainingChunks--;
-            }
-        }
-        // Breakout condition
-        if(numRemainingChunks == 0) {
-            break;
-        }
-        writeRecordToFile(&(tempTables[minRecordIndex]->currentRecord), output, tempTables[0]->numFields, true);
-        readNextRecord(tempTables[minRecordIndex]);
-    }
-    fclose(output);
-}
-
 
 //  -----------= JOIN FUNCTIONS =----------------
 
-void _mergeTwoRecords(const Record* left, const Record* right,
+static inline void _mergeTwoRecords(const Record* left, const Record* right,
                         const Record* target) {
     copyField(target, left, 0, 3 ); // D
     copyField(target, left, 1, 0); // A
@@ -602,7 +611,7 @@ void _mergeTwoRecords(const Record* left, const Record* right,
     copyField(target, right, 4, 1); // E
 }
 
-void _mergeThreeRecordsIntoRecord(const Record* left, const Record* middle, const Record* right,
+static inline void _mergeThreeRecordsIntoRecord(const Record* left, const Record* middle, const Record* right,
                                   const Record* target)
 {
     copyField(target, left, 0, 0 ); // A
@@ -735,6 +744,8 @@ Table* joinThreeTables(Table* left, Table* middle, Table* right,
     // We iterate while there are still records in the left table
     // since even if the middle and right table are finished, there could still be joinable records in the buffers
     while( !left->endOfFile ) {
+
+
         if(l_greater_m == 0 && l_greater_r == 0) {  // case (B B B), all active
             // enter a join phase - from here on out we need buffers
             is_in_join_phase = true;
@@ -947,7 +958,7 @@ void writeTableToConsoleLimited(Table* table) {
 // Print out all number of lines from table to console
 // CAUTION: THE TABLE CAN NO LONGER BE ACCESSED AFTER PRINTING
 void writeTableToConsole(Table* table) {
-    _writeTableToFileStream(table, stdout, false);
+    writeTableToFileStream(table, stdout, false);
 }
 
 int main(int argc, char* argv[]) {
@@ -970,7 +981,7 @@ int main(int argc, char* argv[]) {
 
     //writeTableToConsole(join123);
 
-    char output_filename[] = "output-V1.0.csv";
+    char output_filename[] = "output-V2.0.csv";
     Table* join1234 = joinTables(join123, sortedTable4, output_filename);
 
     writeTableToConsole(join1234);

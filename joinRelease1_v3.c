@@ -7,7 +7,7 @@
 // Put all implemented performance optimizations here (relative to base.c)
 // Currently implemented in this file
 // - Threeway merge join implemented
-// - created utility functions copyField, _mergeTempTables
+// - created utility functions _copyField, _mergeTempTables
 // - Remove numFields from Record struct, thus mostly passed as input parameter
 // - Used INT128 encoding, major overhauls to low-level functions
 // -
@@ -21,6 +21,7 @@
 #define MAX_PRINT_LINES 25 // Only for testing, limit the number of lines printed out at once
 #define MAX_NUM_CHARACTERS 55 // 1 + 10 + 26 + 17 + 1 (can handle \0, 0-9, A-Z, a-q, and one unknown character)
 #define INT_128 unsigned __int128
+#define INT128_MAX ((unsigned __int128)(-1))
 
 
 // Structure for record with no fixed number of fields
@@ -80,7 +81,7 @@ void freeRecord(Record* record) {
     if(record) record = NULL;
 }
 
-void copyField(const Record* dest, const Record* source, const int dest_index, const int source_index) {
+void _copyField(const Record* dest, const Record* source, const int dest_index, const int source_index) {
     dest->fields[dest_index] = source->fields[source_index];
 }
 
@@ -88,7 +89,7 @@ void copyField(const Record* dest, const Record* source, const int dest_index, c
 void copyRecord(const Record* dest, const Record* source, const int numFields) {
     // Copy all fields
     for (int i = 0; i < numFields; i++) {
-        copyField(dest, source, i, i);
+        _copyField(dest, source, i, i);
     }
 }
 
@@ -482,6 +483,7 @@ int compareRecordsOnThird(const void* a, const void* b) {
     return compareRecordsOnFields(a, b, 3, 3);
 }
 
+#include <pthread.h>
 
 // Sort one chunk in-place in memory
 void sortChunk(Chunk* chunk, int on_index) {
@@ -500,52 +502,16 @@ void sortChunk(Chunk* chunk, int on_index) {
     // There has to be a better way to do this....
 }
 
+typedef struct {
+    Table** tempTables;
+    int start;
+    int end;
+    FILE* output;
+    int on_index;
+} MergeThreadArgs;
 
-Table* ExternalMergeSort(const Table* table, const char* outputFileName, const int on_index) {
-    int numChunks = 0;
-    Table* tempTables[MAX_NUM_CHUNKS];
 
-    // Process table as chunks
-    // 1) Split off chunk from table
-    // 2) Sort in-memory
-    // 3) Write as temp. file to disc
-    // 4) Remove chunk from memory
-    while(!feof(table->file) && numChunks < MAX_NUM_CHUNKS) {
-        // Create new chunk file
-        char tempFilename[32];
-        sprintf(tempFilename, "temp_%d.bin", numChunks);
 
-        Chunk* chunk = loadFileIntoChunk(table->file, table->numFields, table->file_is_encoded);
-        sortChunk(chunk, on_index);
-        writeChunkToFile(chunk, tempFilename);
-        freeChunk(chunk);
-
-        tempTables[numChunks] = loadFileIntoTable(tempFilename, table->numFields, true);
-        readNextRecord(tempTables[numChunks]);
-
-        numChunks++;
-    }
-
-    _mergeTempTables(tempTables, outputFileName, numChunks, on_index);
-    // Moved this loop into another function to use it in another part of the code
-    /*
-    while(true) {
-        int numRemainingChunks = numChunks;
-        ......
-    }
-    */
-    char tempFilename[32];
-    for(int i = 0; i < numChunks; i++) {
-        freeTable(tempTables[i]);
-        sprintf(tempFilename, "temp_%d.bin", i);
-        if(remove(tempFilename)!=0) {
-            perror("Error deleting file");
-        };
-    }
-
-    Table* outputTable = loadFileIntoTable(outputFileName, table->numFields, true);
-    return outputTable;
-}
 
 void _mergeTempTables(Table** tempTables, const char* outputFileName, const int numChunks, const int on_index) {
     FILE* output = fopen(outputFileName, "wb+");
@@ -590,25 +556,310 @@ void _mergeTempTables(Table** tempTables, const char* outputFileName, const int 
     fclose(output);
 }
 
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+
+#define MAX_THREADS 16
+#define MAX_QUEUE_SIZE 34
+
+typedef struct {
+    Chunk* chunk;
+    int on_index;
+    int task_id;
+    bool is_valid;
+} Task;
+
+typedef struct {
+    Task tasks[MAX_QUEUE_SIZE];
+    int front;
+    int rear;
+    int count;
+    pthread_mutex_t lock;
+    pthread_cond_t not_empty;
+    pthread_cond_t not_full;
+} TaskQueue;
+
+typedef struct {
+    TaskQueue* task_queue;
+} ThreadPoolArgs;
+
+
+TaskQueue task_queue;
+
+
+void initTaskQueue(TaskQueue* queue) {
+    queue->front = 0;
+    queue->rear = 0;
+    queue->count = 0;
+    pthread_mutex_init(&queue->lock, NULL);
+    pthread_cond_init(&queue->not_empty, NULL);
+    pthread_cond_init(&queue->not_full, NULL);
+}
+
+void enqueueTask(TaskQueue* queue, Task* task) {
+    pthread_mutex_lock(&queue->lock);
+    while (queue->count == MAX_QUEUE_SIZE) {
+        pthread_cond_wait(&queue->not_full, &queue->lock);
+    }
+    queue->tasks[queue->rear] = *task;
+    queue->rear = (queue->rear + 1) % MAX_QUEUE_SIZE;
+    queue->count++;
+    pthread_cond_signal(&queue->not_empty);
+    pthread_mutex_unlock(&queue->lock);
+}
+
+Task dequeueTask(TaskQueue* queue) {
+    pthread_mutex_lock(&queue->lock);
+    while (queue->count == 0) {
+        pthread_cond_wait(&queue->not_empty, &queue->lock);
+    }
+    Task task = queue->tasks[queue->front];
+    queue->front = (queue->front + 1) % MAX_QUEUE_SIZE;
+    queue->count--;
+    pthread_cond_signal(&queue->not_full);
+    pthread_mutex_unlock(&queue->lock);
+    return task;
+}
+
+
+void* workerFunction(void* args) {
+    ThreadPoolArgs* pool_args = (ThreadPoolArgs*)args;
+    TaskQueue* queue = pool_args->task_queue;
+
+    while (true) {
+        Task task = dequeueTask(queue);
+
+        if (!task.is_valid) {
+
+            break;
+        }
+
+        
+        sortChunk(task.chunk, task.on_index);
+
+        
+        char tempFilename[32];
+        sprintf(tempFilename, "temp_%d.bin", task.task_id);
+        writeChunkToFile(task.chunk, tempFilename);
+        freeChunk(task.chunk);
+    }
+    return NULL;
+}
+
+Table* ExternalMergeSort(const Table* table, const char* outputFileName, const int on_index) {
+    int numChunks = 0;
+    Table* tempTables[MAX_NUM_CHUNKS];
+    char tempFilename[32];
+
+    
+    initTaskQueue(&task_queue);
+
+    
+    pthread_t threads[MAX_THREADS];
+    ThreadPoolArgs pool_args = { .task_queue = &task_queue };
+
+    for (int i = 0; i < MAX_THREADS; i++) {
+        pthread_create(&threads[i], NULL, workerFunction, &pool_args);
+    }
+
+    
+    while (!feof(table->file) && numChunks < MAX_NUM_CHUNKS) {
+        Chunk* chunk = loadFileIntoChunk(table->file, table->numFields, table->file_is_encoded);
+
+        Task task = {
+            .chunk = chunk,
+            .on_index = on_index,
+            .task_id = numChunks,
+            .is_valid = true
+        };
+        enqueueTask(&task_queue, &task);
+
+        numChunks++;
+    }
+
+    
+    for (int i = 0; i < MAX_THREADS; i++) {
+        Task terminate_task = { .is_valid = false };
+        enqueueTask(&task_queue, &terminate_task);
+    }
+
+    
+    for (int i = 0; i < MAX_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    
+    for (int i = 0; i < numChunks; i++) {
+        sprintf(tempFilename, "temp_%d.bin", i);
+        tempTables[i] = loadFileIntoTable(tempFilename, table->numFields, true);
+        readNextRecord(tempTables[i]);
+    }
+
+    
+    _mergeTempTables(tempTables, outputFileName, numChunks, on_index);
+
+    
+    for (int i = 0; i < numChunks; i++) {
+        freeTable(tempTables[i]);
+        sprintf(tempFilename, "temp_%d.bin", i);
+        if (remove(tempFilename) != 0) {
+            perror("Error deleting temporary file");
+        }
+    }
+
+    
+    Table* outputTable = loadFileIntoTable(outputFileName, table->numFields, true);
+    return outputTable;
+}
+
+
+
+
+// #include <pthread.h>
+
+// typedef struct {
+//     Chunk* chunk;
+//     int on_index;
+// } SortThreadArgs;
+
+// void* sortChunkThread(void* args) {
+//     SortThreadArgs* sortArgs = (SortThreadArgs*)args;
+//     sortChunk(sortArgs->chunk, sortArgs->on_index);
+//     return NULL;
+// }
+
+// Table* ExternalMergeSort(const Table* table, const char* outputFileName, const int on_index) {
+//     int numChunks = 0;
+//     Table* tempTables[MAX_NUM_CHUNKS];
+
+//     // Create a thread pool (one thread per chunk)
+//     pthread_t threads[MAX_NUM_CHUNKS];
+//     SortThreadArgs threadArgs[MAX_NUM_CHUNKS];
+
+//     // Process table as chunks
+//     while (!feof(table->file) && numChunks < MAX_NUM_CHUNKS) {
+//         // Load chunk from file
+//         Chunk* chunk = loadFileIntoChunk(table->file, table->numFields, table->file_is_encoded);
+
+//         // Prepare arguments for thread
+//         threadArgs[numChunks].chunk = chunk;
+//         threadArgs[numChunks].on_index = on_index;
+
+//         // Create a thread to sort the chunk
+//         if (pthread_create(&threads[numChunks], NULL, sortChunkThread, &threadArgs[numChunks]) != 0) {
+//             perror("Error creating thread for sorting");
+//             exit(EXIT_FAILURE);
+//         }
+
+//         numChunks++;
+//     }
+
+//     // Wait for all threads to finish sorting
+//     for (int i = 0; i < numChunks; i++) {
+//         pthread_join(threads[i], NULL);
+
+//         // Write sorted chunk to file
+//         char tempFilename[32];
+//         sprintf(tempFilename, "temp_%d.bin", i);
+//         writeChunkToFile(threadArgs[i].chunk, tempFilename);
+
+//         // Load the temporary file into a table for merging
+//         tempTables[i] = loadFileIntoTable(tempFilename, table->numFields, true);
+//         readNextRecord(tempTables[i]);
+
+//         // Free the chunk memory
+//         freeChunk(threadArgs[i].chunk);
+//     }
+
+//     // Merge sorted chunks into a single file
+//     _mergeTempTables(tempTables, outputFileName, numChunks, on_index);
+
+//     // Clean up temporary tables and files
+//     char tempFilename[32];
+//     for (int i = 0; i < numChunks; i++) {
+//         freeTable(tempTables[i]);
+//         sprintf(tempFilename, "temp_%d.bin", i);
+//         if (remove(tempFilename) != 0) {
+//             perror("Error deleting temporary file");
+//         }
+//     }
+
+//     // Load and return the final sorted table
+//     Table* outputTable = loadFileIntoTable(outputFileName, table->numFields, true);
+//     return outputTable;
+// }
+
+
+
+// Table* ExternalMergeSort(const Table* table, const char* outputFileName, const int on_index) {
+//     int numChunks = 0;
+//     Table* tempTables[MAX_NUM_CHUNKS];
+
+//     // Process table as chunks
+//     // 1) Split off chunk from table
+//     // 2) Sort in-memory
+//     // 3) Write as temp. file to disc
+//     // 4) Remove chunk from memory
+//     while(!feof(table->file) && numChunks < MAX_NUM_CHUNKS) {
+//         // Create new chunk file
+//         char tempFilename[32];
+//         sprintf(tempFilename, "temp_%d.bin", numChunks);
+
+//         Chunk* chunk = loadFileIntoChunk(table->file, table->numFields, table->file_is_encoded);
+//         sortChunk(chunk, on_index);
+//         writeChunkToFile(chunk, tempFilename);
+//         freeChunk(chunk);
+
+//         tempTables[numChunks] = loadFileIntoTable(tempFilename, table->numFields, true);
+//         readNextRecord(tempTables[numChunks]);
+
+//         numChunks++;
+//     }
+
+//     _mergeTempTables(tempTables, outputFileName, numChunks, on_index);
+//     // Moved this loop into another function to use it in another part of the code
+//     /*
+//     while(true) {
+//         int numRemainingChunks = numChunks;
+//         ......
+//     }
+//     */
+//     char tempFilename[32];
+//     for(int i = 0; i < numChunks; i++) {
+//         freeTable(tempTables[i]);
+//         sprintf(tempFilename, "temp_%d.bin", i);
+//         if(remove(tempFilename)!=0) {
+//             perror("Error deleting file");
+//         };
+//     }
+
+//     Table* outputTable = loadFileIntoTable(outputFileName, table->numFields, true);
+//     return outputTable;
+// }
+
+
+
 
 //  -----------= JOIN FUNCTIONS =----------------
 
 void _mergeTwoRecords(const Record* left, const Record* right,
                         const Record* target) {
-    copyField(target, left, 0, 3 ); // D
-    copyField(target, left, 1, 0); // A
-    copyField(target, left, 2, 1); // B
-    copyField(target, left, 3, 2); // C
-    copyField(target, right, 4, 1); // E
+    _copyField(target, left, 0, 3 ); // D
+    _copyField(target, left, 1, 0); // A
+    _copyField(target, left, 2, 1); // B
+    _copyField(target, left, 3, 2); // C
+    _copyField(target, right, 4, 1); // E
 }
 
 void _mergeThreeRecordsIntoRecord(const Record* left, const Record* middle, const Record* right,
                                   const Record* target)
 {
-    copyField(target, left, 0, 0 ); // A
-    copyField(target, left, 1, 1);  // B
-    copyField(target, middle, 2, 1); // C
-    copyField(target, right, 3, 1);   //D
+    _copyField(target, left, 0, 0 ); // A
+    _copyField(target, left, 1, 1);  // B
+    _copyField(target, middle, 2, 1); // C
+    _copyField(target, right, 3, 1);   //D
 }
 
 // Just a wrapper for _mergeThreeRecordsIntoRecord

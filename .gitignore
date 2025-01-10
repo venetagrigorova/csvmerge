@@ -11,6 +11,9 @@
 # Ignore all data files
 *.csv
 
+# Ignore all exe files
+*.exe
+
 # Ignore cmake stuff
 CMakeLists.txt
 .idea/

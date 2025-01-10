@@ -56,17 +56,26 @@ typedef struct {
 
 // -----------= CONSTUCTORS AND DESTRUCTORS =----------------
 
-// Initialize a record with given number of fields at a certain adress
+// // Initialize a record with given number of fields at a certain adress
+// void initRecord(Record* record, const int numFields) {
+//     record->fields = (INT_128*)malloc(numFields * sizeof(INT_128));
+//     if(!record->fields) {
+//         perror("Failed to allocate memory for record");
+//         exit(EXIT_FAILURE);
+//     }
+//     // Initialize all fields to be empty
+//     for (int i = 0; i < numFields; i++) {
+//         record->fields[i] = 0;
+//     }
+// }
+//using calloc instead of malloc, calloc automaticly initilaze values to 0, so the for loop with explicity initialization is not MFLAG
 void initRecord(Record* record, const int numFields) {
-    record->fields = (INT_128*)malloc(numFields * sizeof(INT_128));
+    record->fields = (INT_128*)calloc(numFields,sizeof(INT_128));
     if(!record->fields) {
         perror("Failed to allocate memory for record");
         exit(EXIT_FAILURE);
     }
-    // Initialize all fields to be empty
-    for (int i = 0; i < numFields; i++) {
-        record->fields[i] = 0;
-    }
+    
 }
 
 
@@ -103,15 +112,28 @@ Chunk* createChunk(const int numRecords, const int numFields) {
         exit(EXIT_FAILURE);
     }
 
-    // Loop unrolling here?
-    for (int i = 0; i < numRecords; i++) {
+    // // Loop unrolling here?
+    // for (int i = 0; i < numRecords; i++) {
+    //     records[i].fields = fieldBlock + i * numFields;
+    //     // Initialize fields to zero
+    //     /* We can skip this if we never access un-initialized records
+    //     for (int j = 0; j < numFields; j++) {
+    //         records[i].fields[j] = 0;
+    //     }
+    //     */
+    // }
+    // Loop unrolling here MFLAG
+    int i = 0;
+    for ( i; i+3 < numRecords; i+=4) {
         records[i].fields = fieldBlock + i * numFields;
-        // Initialize fields to zero
-        /* We can skip this if we never access un-initialized records
-        for (int j = 0; j < numFields; j++) {
-            records[i].fields[j] = 0;
-        }
-        */
+        records[i + 1].fields = fieldBlock + (i + 1) * numFields;
+        records[i + 2].fields = fieldBlock + (i + 2) * numFields;
+        records[i + 3].fields = fieldBlock + (i + 3) * numFields;
+        
+    }
+    for (i ; i < numRecords; i++) {
+        records[i].fields = fieldBlock + i * numFields;
+        
     }
     chunk->records = records;
     chunk->numRecords = 0;
@@ -173,18 +195,31 @@ static INT_128 encodeField(const char* field) {
     INT_128 offset = 1;
     char character;
     unsigned int add = 0;
+    // for (int i = 0; i < FIELD_LENGTH & field[i] != ',' & field[i] != '\n' ; i++) {
+    //     character = field[i];
+    //     if (character >= 'A' && character <= 'Z') {
+    //         add = character - 'A' + 1;  // 'A' -> 1, 'B' -> 2, ..., 'Z' -> 26
+    //     } else if (character >= '0' && character <= '9') {
+    //         add = character - '0' + 27; // '0' -> 27, '1' -> 28, ..., '9' -> 36
+    //     } else if (character >= 'a' && character <= 'z') {
+    //         add = character - 'a' + 37; // 'a' -> 37, ..., 'q' -> 53
+    //         if(add >= MAX_NUM_CHARACTERS) add = MAX_NUM_CHARACTERS - 1;
+    //     } else if (character == '\0') {
+    //         add = MAX_NUM_CHARACTERS - 1;           // '\0' -> 54
+    //     } else add = 0;  // any unknown characters -> 0
+    //     result = result + add * offset;
+    //     offset = offset * MAX_NUM_CHARACTERS;
+    // }
+    // return result;
     for (int i = 0; i < FIELD_LENGTH & field[i] != ',' & field[i] != '\n' ; i++) {
         character = field[i];
-        if (character >= 'A' && character <= 'Z') {
-            add = character - 'A' + 1;  // 'A' -> 1, 'B' -> 2, ..., 'Z' -> 26
-        } else if (character >= '0' && character <= '9') {
-            add = character - '0' + 27; // '0' -> 27, '1' -> 28, ..., '9' -> 36
-        } else if (character >= 'a' && character <= 'z') {
-            add = character - 'a' + 37; // 'a' -> 37, ..., 'q' -> 53
-            if(add >= MAX_NUM_CHARACTERS) add = MAX_NUM_CHARACTERS - 1;
-        } else if (character == '\0') {
-            add = MAX_NUM_CHARACTERS - 1;           // '\0' -> 54
-        } else add = 0;  // any unknown characters -> 0
+        //arithemtic flags instead of if-else structure MFLAG
+        add =   (character >= 'A')*(character <= 'Z')*(character - 'A' + 1)+
+                (character >= '0')*(character <= '9')*(character - '0' + 27)+
+                (character >= 'a')*(character <= 'z')*(character - 'a' + 37)+
+                (character == '\0')*(MAX_NUM_CHARACTERS - 1);
+
+        add = (add >= MAX_NUM_CHARACTERS) * (MAX_NUM_CHARACTERS - 1) + (add < MAX_NUM_CHARACTERS) * add;
         result = result + add * offset;
         offset = offset * MAX_NUM_CHARACTERS;
     }
@@ -197,22 +232,40 @@ static int decodeField(INT_128 code, char* output) {
     INT_128 value = code;
     unsigned int remainder = 0;
     int len = 0;
+    // for(len = 0; len < FIELD_LENGTH; len++) {
+    //     remainder = value % MAX_NUM_CHARACTERS;
+    //     if (remainder >= 1 && remainder <= 26) {
+    //         output[len] =  'A' + (remainder - 1);  // 1 -> 'A', 2 -> 'B', ..., 26 -> 'Z'
+    //     } else if (remainder >= 27 && remainder <= 36) {
+    //         output[len] =  '0' + (remainder - 27); // 27 -> '0', ..., 36 -> '9'
+    //     } else if (remainder >= 37 && remainder <= MAX_NUM_CHARACTERS-2) {
+    //         output[len] = 'a' + (remainder - 37); // 37 -> 'a', ..., 53 -> 'q'
+    //     } else if (remainder == MAX_NUM_CHARACTERS-1) {
+    //         output[len] = '\0';             // 54 -> '\0'
+    //     } else output[len] = '?';
+    //     value = value / MAX_NUM_CHARACTERS;
+    //     // breakout condition
+    //     if(value == 0) {
+    //         output[len+1] = '\0';
+    //         len++;
+    //         break;
+    //     }
+    // }
+    // return len;
     for(len = 0; len < FIELD_LENGTH; len++) {
         remainder = value % MAX_NUM_CHARACTERS;
-        if (remainder >= 1 && remainder <= 26) {
-            output[len] =  'A' + (remainder - 1);  // 1 -> 'A', 2 -> 'B', ..., 26 -> 'Z'
-        } else if (remainder >= 27 && remainder <= 36) {
-            output[len] =  '0' + (remainder - 27); // 27 -> '0', ..., 36 -> '9'
-        } else if (remainder >= 37 && remainder <= MAX_NUM_CHARACTERS-2) {
-            output[len] = 'a' + (remainder - 37); // 37 -> 'a', ..., 53 -> 'q'
-        } else if (remainder == MAX_NUM_CHARACTERS-1) {
-            output[len] = '\0';             // 54 -> '\0'
-        } else output[len] = '?';
+        //arithemtic flags instead of if-else structure
+        //however, using this gave lower valu for cycles, higher for instruction per cycle, CPU utilized and time MFLAG
+        output[len] = (remainder >= 1 && remainder <= 26) * ('A' + (remainder - 1)) +
+                      (remainder >= 27 && remainder <= 36) * ('0' + (remainder - 27)) +
+                      (remainder >= 37 && remainder <= MAX_NUM_CHARACTERS - 2) * ('a' + (remainder - 37)) +
+                      (remainder == MAX_NUM_CHARACTERS - 1) * '\0' +
+                      (remainder >= MAX_NUM_CHARACTERS) * '?';
         value = value / MAX_NUM_CHARACTERS;
         // breakout condition
         if(value == 0) {
-            output[len+1] = '\0';
-            len++;
+            output[++len] = '\0';
+            
             break;
         }
     }
@@ -447,10 +500,14 @@ static inline void writeTableToConsole(Table* table) {
 static inline int compareRecordsOnFields(const void* left, const void* right, const int left_on, const int right_on) {
     const Record* r1 = (const Record*)left;
     const Record* r2 = (const Record*)right;
-    int cmp = 0;
-    if(r1->fields[left_on] > r2->fields[right_on])  cmp = 1;
-    if(r1->fields[left_on] < r2->fields[right_on])  cmp = -1;
+    // int cmp = 0;
+    // if(r1->fields[left_on] > r2->fields[right_on])  cmp = 1;
+    // if(r1->fields[left_on] < r2->fields[right_on])  cmp = -1;
 
+    // return cmp;
+    //arithmetic flag is used here MFLAG
+    int cmp = (r1->fields[left_on] > r2->fields[right_on]) - (r1->fields[left_on] < r2->fields[right_on]);
+    
     return cmp;
 }
 
@@ -492,8 +549,34 @@ void _mergeTempTables(Table** tempTables, const char* outputFileName, const int 
     // 3) Print that record into the output file
     // 4) Repeat until all records are processed
     int numFields = tempTables[0]->numFields;
-    while (true) {
-        int minRecordIndex = -1; // Index of the current minimum record across chunks
+    // while (true) {
+    //     int minRecordIndex = -1; // Index of the current minimum record across chunks
+
+    //     // Find the smallest record among the chunks
+    //     for (int i = 0; i < numChunks; i++) {
+    //         if (!tempTables[i]->endOfFile && (minRecordIndex == -1 ||
+    //             compareRecordsOnFields(&tempTables[i]->currentRecord,
+    //                                    &tempTables[minRecordIndex]->currentRecord,
+    //                                    on_index, on_index
+    //                                    ) < 0)) {
+    //             minRecordIndex = i;
+    //                                    }
+    //     }
+
+    //     // If no more records are available, exit the merge loop
+    //     if (minRecordIndex == -1) {
+    //         break;
+    //     }
+
+    //     // Write the smallest record to the output file
+    //     writeRecordToFile(&tempTables[minRecordIndex]->currentRecord, output, numFields, true);
+
+    //     // Advance to the next record in the chunk containing the smallest record
+    //     readNextRecord(tempTables[minRecordIndex]);
+    // }
+    int minRecordIndex; // this part is loop invariant, so it goes before loop MFLAG
+    do {//do while loop is better than while, due to position of branch condition MFLAG
+        minRecordIndex = -1; // Index of the current minimum record across chunks
 
         // Find the smallest record among the chunks
         for (int i = 0; i < numChunks; i++) {
@@ -516,7 +599,7 @@ void _mergeTempTables(Table** tempTables, const char* outputFileName, const int 
 
         // Advance to the next record in the chunk containing the smallest record
         readNextRecord(tempTables[minRecordIndex]);
-    }
+    }while (true);
     fclose(output);
 }
 
@@ -530,20 +613,38 @@ Table* ExternalMergeSort(const Table* table, const char* outputFileName, const i
     // 2) Sort in-memory
     // 3) Write as temp. file to disc
     // 4) Remove chunk from memory
-    while(!feof(table->file) && numChunks < MAX_NUM_CHUNKS) {
-        // Create new chunk file
-        char tempFilename[32];
-        sprintf(tempFilename, "temp_%d.bin", numChunks);
+    // while(!feof(table->file) && numChunks < MAX_NUM_CHUNKS) {
+    //     // Create new chunk file
+    //     char tempFilename[32];
+    //     sprintf(tempFilename, "temp_%d.bin", numChunks);
 
-        Chunk* chunk = loadFileIntoChunk(table->file, table->numFields, table->file_is_encoded);
-        sortChunk(chunk, on_index);
-        writeChunkToFile(chunk, tempFilename);
-        freeChunk(chunk);
+    //     Chunk* chunk = loadFileIntoChunk(table->file, table->numFields, table->file_is_encoded);
+    //     sortChunk(chunk, on_index);
+    //     writeChunkToFile(chunk, tempFilename);
+    //     freeChunk(chunk);
 
-        tempTables[numChunks] = loadFileIntoTable(tempFilename, table->numFields, true);
-        readNextRecord(tempTables[numChunks]);
+    //     tempTables[numChunks] = loadFileIntoTable(tempFilename, table->numFields, true);
+    //     readNextRecord(tempTables[numChunks]);
 
-        numChunks++;
+    //     numChunks++;
+    // }
+    if (!feof(table->file) & numChunks < MAX_NUM_CHUNKS){//do-while with first check instead of while MFLAG
+                                                        //& instead of && cause second op is cheap
+
+        do {
+            char tempFilename[32];
+            sprintf(tempFilename, "temp_%d.bin", numChunks);
+
+            Chunk* chunk = loadFileIntoChunk(table->file, table->numFields, table->file_is_encoded);
+            sortChunk(chunk, on_index);
+            writeChunkToFile(chunk, tempFilename);
+            freeChunk(chunk);
+
+            tempTables[numChunks] = loadFileIntoTable(tempFilename, table->numFields, true);
+            readNextRecord(tempTables[numChunks]);
+
+            numChunks++;    
+        }while(!feof(table->file) & numChunks < MAX_NUM_CHUNKS);
     }
 
     _mergeTempTables(tempTables, outputFileName, numChunks, on_index);
@@ -633,8 +734,10 @@ void joinTables(Table* left, Table* right) {
 
     readNextRecord(left);
     readNextRecord(right);
-    while(!left->endOfFile) {
-        int comparison = compareRecordsOnFields(&left->currentRecord, &right->currentRecord, 3, 0);
+
+    if(!left->endOfFile){
+        do{
+            int comparison = compareRecordsOnFields(&left->currentRecord, &right->currentRecord, 3, 0);
         if(right->endOfFile) {
             comparison = -1;
         }
@@ -679,7 +782,57 @@ void joinTables(Table* left, Table* right) {
         else {
             readNextRecord(right);
         }
+        }
+        while(!left->endOfFile);
     }
+
+    // while(!left->endOfFile) {
+    //     int comparison = compareRecordsOnFields(&left->currentRecord, &right->currentRecord, 3, 0);
+    //     if(right->endOfFile) {
+    //         comparison = -1;
+    //     }
+
+    //     if(comparison == 0) {
+    //         if(!is_in_join_phase) {
+    //             n_buffered = 0;
+    //             is_in_join_phase = true;
+    //             INT_128 key = *(right->currentRecord.fields);
+    //             bufferRecord->fields[0] = key;
+    //         }
+    //         // Load right record into buffer
+    //         n_buffered++;
+
+    //         // Write the found joined records to output
+    //         _mergeTwoRecords(left, right, 0, tempRecord);
+    //         //writeRecordToFile(tempRecord, output, numFieldsOutput, true);
+
+    //         // Advance right table
+    //         readNextRecord(right);
+    //     }
+    //     else if (comparison < 0) {
+    //         readNextRecord(left);
+    //         if(!is_in_join_phase | left->endOfFile) {
+    //             continue;
+    //         }
+    //         if( compareRecordsOnFields(&left->currentRecord, bufferRecord, 3, 0) == 0) {
+    //             // In this case we can match the left record to all previous right records that were loaded
+    //             // into the buffer. For each of the Records in the buffer output a join result of the current left
+    //             // row with one previous right row.
+    //             for(int i = 1; i <= n_buffered; i++) {
+    //                 _mergeTwoRecords(left, right, i, tempRecord);
+    //                 //writeRecordToFile(tempRecord, output, numFieldsOutput, true);
+    //             }
+    //         }
+    //         else {
+    //             // In this case we don't need the buffer anymore
+    //             n_buffered = 0;
+    //             is_in_join_phase = false; //end of current join phase
+    //         }
+    //     }
+    //     else {
+    //         readNextRecord(right);
+    //     }
+    // }
     freeRecord(tempRecord);
     return;
 }
@@ -713,9 +866,9 @@ Table* joinThreeTables(Table* left, Table* middle, Table* right,
 
     // We iterate while there are still records in the left table
     // since even if the middle and right table are finished, there could still be joinable records in the buffers
-    while( !left->endOfFile ) {
-
-        if(l_greater_m == 0 && l_greater_r == 0) {  // case (B B B), all active
+    if ( !left->endOfFile ){ //if plus do while instead of while
+        do{
+            if(l_greater_m == 0 && l_greater_r == 0) {  // case (B B B), all active
             // enter a join phase - from here on out we need buffers
             if(!is_in_join_phase) {
                 n_buffered_right = 0;
@@ -828,7 +981,126 @@ Table* joinThreeTables(Table* left, Table* middle, Table* right,
                 else                m_greater_r = 0;
             }
         }
+        }
+        while( !left->endOfFile );
     }
+    // while( !left->endOfFile ) {
+
+    //     if(l_greater_m == 0 && l_greater_r == 0) {  // case (B B B), all active
+    //         // enter a join phase - from here on out we need buffers
+    //         if(!is_in_join_phase) {
+    //             n_buffered_right = 0;
+    //             is_in_join_phase = true;
+    //             bufferRecordRight->fields[0] = *right->currentRecord.fields;
+    //         }
+    //         // Load right record into buffer
+    //         n_buffered_right++;
+
+    //         // Write the found joined records to output
+    //         processThreeRecords(left, middle, right, 0, 0,
+    //                           outputChunk, &numChunks);
+
+    //         // Advance right
+    //         readNextRecord(right);
+    //         m_greater_r = compareRecordsOnFields(&middle->currentRecord, &right->currentRecord, 0, 0);
+    //         l_greater_r = compareRecordsOnFields(&left->currentRecord, &right->currentRecord, 0, 0);
+    //         if(right->endOfFile) {
+    //             right_active = false;
+    //             l_greater_r = -1;
+    //             if(middle_active)   m_greater_r = -1;
+    //             else                m_greater_r = 0;
+    //         }
+    //     }
+    //     else if (l_greater_m == 0 & l_greater_r < 0) { // case (B B C) or (B B END)
+    //         // Only buffer if we are in active join phase
+    //         if (is_in_join_phase) {
+    //             n_buffered_middle++;
+    //             bufferRecordMiddle->fields[0] = *middle->currentRecord.fields;
+    //         }
+
+    //         // Advance middle
+    //         readNextRecord(middle);
+    //         m_greater_r = compareRecordsOnFields(&middle->currentRecord, &right->currentRecord, 0, 0);
+    //         l_greater_m = compareRecordsOnFields(&left->currentRecord, &middle->currentRecord, 0, 0);
+    //         if(middle->endOfFile) {
+    //             middle_active = false;
+    //             l_greater_m = -1;
+    //             if(right_active)   m_greater_r = 1;
+    //             else               m_greater_r = 0;
+    //         }
+
+    //         // skip rest if not in join phase or we finished middle
+    //         if (!is_in_join_phase | !middle_active) {
+    //             continue;
+    //         }
+
+    //         // Merge phase of first order
+    //         if(compareRecordsOnFields(&middle->currentRecord, bufferRecordRight, 0, 0) == 0) { // recordFitsBuffer(&middle->currentRecord, 0, rightBuffer)) {
+    //             // In this case we can match the left, middle records to all previous right records that were loaded
+    //             // into the buffer. For each of the Records in the buffer output a join result of the current left
+    //             // row and middle row with one previous right row.
+    //             for(int i = 1; i <= n_buffered_right; i++) {
+    //                 processThreeRecords(left, middle, right, 0, i,
+    //                                             outputChunk, &numChunks);
+    //             }
+    //         }
+    //     }
+    //     else if (l_greater_m < 0 & l_greater_r < 0) {  // case (B C D) or (B C C) or (B D C) or (B C B)
+    //         readNextRecord(left);
+    //         l_greater_m = compareRecordsOnFields(&left->currentRecord, &middle->currentRecord, 0, 0);
+    //         l_greater_r = compareRecordsOnFields(&left->currentRecord, &right->currentRecord, 0, 0);
+    //         if(left->endOfFile) {
+    //             continue;
+    //         }
+    //         if(!middle_active)  l_greater_m = -1;
+    //         if(!right_active)   l_greater_r = -1;
+
+    //         // guard clause: if we are not in a join phase then we can just read the next row in the left
+    //         if (!is_in_join_phase) {
+    //             continue;
+    //         }
+
+    //         // If we are in a join phase we need to do more work
+    //         if(compareRecordsOnFields(&left->currentRecord, bufferRecordMiddle, 0, 0) == 0) { //recordFitsBuffer(&left->currentRecord, 0, middleBuffer)) {
+    //             for(int i = 1; i <= n_buffered_middle; i++) {
+    //                 for(int j = 1; j <= n_buffered_right; j++) {
+    //                     processThreeRecords(left, middle, right, i, j, outputChunk, &numChunks);
+    //                 }
+    //             }
+    //         }
+    //         else { // Since the next left record did not fit the patter, this is the end of the current join phase
+    //             is_in_join_phase = false;
+    //             n_buffered_middle = 0;
+    //             n_buffered_right = 0;
+    //         }
+    //     }
+    //     // Otherwise just advance the table with the smallest record
+    //     else if (l_greater_m > 0 && m_greater_r < 0) { // Case (C B C) or (C B D) or (D B C) with possible E=End
+    //         // Advance middle
+    //         readNextRecord(middle);
+    //         m_greater_r = compareRecordsOnFields(&middle->currentRecord, &right->currentRecord, 0, 0);
+    //         l_greater_m = compareRecordsOnFields(&left->currentRecord, &middle->currentRecord, 0, 0);
+    //         if(middle->endOfFile) {
+    //             middle_active = false;
+    //             l_greater_m = -1;
+    //             if(right_active)   m_greater_r = 1;
+    //             else               m_greater_r = 0;
+    //         }
+    //     }
+    //     else  { // If none of the previous conditions were true then the right table must have one of the smallest records
+    //         // Advance right
+    //         readNextRecord(right);
+    //         m_greater_r = compareRecordsOnFields(&middle->currentRecord, &right->currentRecord, 0, 0);
+    //         l_greater_r = compareRecordsOnFields(&left->currentRecord, &right->currentRecord, 0, 0);
+    //         if(right->endOfFile) {
+    //             right_active = false;
+    //             l_greater_r = -1;
+    //             if(middle_active)   m_greater_r = -1;
+    //             else                m_greater_r = 0;
+    //         }
+    //     }
+    // }
+    
     // All records are correctly joined at this point
 
     // Write out the remaining chunk which is not yet full
@@ -869,8 +1141,10 @@ Table* joinThreeTables(Table* left, Table* middle, Table* right,
     }
 
     // Load and return result
-    Table* result = loadFileIntoTable(outputFileName, numFieldsResult, true);
-    return result;
+    // Table* result = loadFileIntoTable(outputFileName, numFieldsResult, true);
+    // return result;
+    // return result; removing unnecessary varaible MFLAG
+    return (Table*)loadFileIntoTable(outputFileName, numFieldsResult, true);
 }
 
 
@@ -878,7 +1152,22 @@ Table* joinThreeTables(Table* left, Table* middle, Table* right,
 
 void printRecord(const Record* record, const int numFields) {
     char field[FIELD_LENGTH];
-    for (int i = 0; i < numFields; i++) {
+    int i= 0;
+    for (; i+3 < numFields;i += 4){//loop unrolling MFLAG
+        decodeField(record->fields[i], field);
+        printf("%s,", field);
+        decodeField(record->fields[i+1], field);
+        printf("%s,", field);
+        decodeField(record->fields[i+2], field);
+        printf("%s,", field);
+        decodeField(record->fields[i+3], field);
+        printf("%s", field);
+        if (i+3 < numFields - 1) {
+            printf(",");
+        }
+        
+    }
+    for (; i < numFields; i++) {
         decodeField(record->fields[i], field);
         printf("%s", field);
         if (i < numFields - 1) {
@@ -894,11 +1183,23 @@ void printChunkInfo(const Chunk* chunk) {
 }
 
 
-void printChunk(const Chunk* chunk) {
-    for (int i = 0; i < chunk->numRecords; i++) {
+void printChunk(const Chunk* chunk) {//loop unrolling MFLAG
+     int numRecords = chunk->numRecords;
+    int i = 0;
+    for (; i < numRecords; i+=4) {
+        printRecord(&chunk->records[i], chunk->numFields);
+        printRecord(&chunk->records[i + 1], chunk->numFields);
+        printRecord(&chunk->records[i + 2], chunk->numFields);
+        printRecord(&chunk->records[i + 3], chunk->numFields);
+    }
+    for (; i < numRecords; i++) {
         printRecord(&chunk->records[i], chunk->numFields);
     }
     printChunkInfo(chunk);
+    // for (int i = 0; i < chunk->numRecords; i++) {
+    //     printRecord(&chunk->records[i], chunk->numFields);
+    // }
+    // printChunkInfo(chunk);
 }
 
 
@@ -912,10 +1213,17 @@ void printTableInfo(Table* table) {
 void writeTableToConsoleLimited(Table* table) {
     int numPrinted = 0;
     readNextRecord(table);
-    while(!table->endOfFile && numPrinted < MAX_PRINT_LINES) {
-        printRecord(&table->currentRecord, table->numFields);
-        readNextRecord(table);
-        numPrinted++;
+    // while(!table->endOfFile && numPrinted < MAX_PRINT_LINES) {
+    //     printRecord(&table->currentRecord, table->numFields);
+    //     readNextRecord(table);
+    //     numPrinted++;
+    // }
+    if (!table->endOfFile & numPrinted < MAX_PRINT_LINES){//if plus do-while and & instead of && MFLAG
+        do{
+            printRecord(&table->currentRecord, table->numFields);
+            readNextRecord(table);
+            numPrinted++;    
+        }while(!table->endOfFile && numPrinted < MAX_PRINT_LINES);
     }
     if(numPrinted == MAX_PRINT_LINES) {
         printf("..... (more rows)\n");

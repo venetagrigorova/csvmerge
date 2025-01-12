@@ -1,0 +1,28 @@
+Performance Statistics for Multiple Executables
+-------------------------------------------------
+
+Performance stats for joinRelease4_mergeSort:
+
+ Performance counter stats for './joinRelease4_mergeSort /localtmp/efficient24/f1.csv /localtmp/efficient24/f2.csv /localtmp/efficient24/f3.csv /localtmp/efficient24/f4.csv':
+
+          25931.60 msec task-clock                       #    0.976 CPUs utilized          
+             14925      context-switches                 #  575.553 /sec                   
+               130      cpu-migrations                   #    5.013 /sec                   
+            127053      page-faults                      #    4.900 K/sec                  
+      116289119904      cycles                           #    4.484 GHz                    
+      218059861989      instructions                     #    1.88  insn per cycle         
+       32633027948      branches                         #    1.258 G/sec                  
+         932617440      branch-misses                    #    2.86% of all branches        
+      581445508905      slots                            #   22.422 G/sec                  
+      159234345915      topdown-retiring                 #     20.8% Retiring              
+      467436585590      topdown-bad-spec                 #     61.1% Bad Speculation       
+       44856654479      topdown-fe-bound                 #      5.9% Frontend Bound        
+       93050929012      topdown-be-bound                 #     12.2% Backend Bound         
+
+      26.565304321 seconds time elapsed
+
+      22.613673000 seconds user
+       3.321420000 seconds sys
+
+
+-------------------------------------------------

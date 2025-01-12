@@ -1,0 +1,24 @@
+Performance Statistics for Multiple Executables
+-------------------------------------------------
+
+Performance stats for joinRelease4_mergeSort_parallel:
+
+ Performance counter stats for 'system wide':
+
+         216902.61 msec cpu-clock                        #    8.002 CPUs utilized          
+           2954147      context-switches                 #   13.620 K/sec                  
+             23665      cpu-migrations                   #  109.104 /sec                   
+           1914499      page-faults                      #    8.827 K/sec                  
+      501523880946      cycles                           #    2.312 GHz                    
+     1150815105936      instructions                     #    2.29  insn per cycle         
+      231233174220      branches                         #    1.066 G/sec                  
+        1618700578      branch-misses                    #    0.70% of all branches        
+     2507586633625      slots                            #   11.561 G/sec                  
+     1077252739310      topdown-retiring                 #     43.0% Retiring              
+      247735161019      topdown-bad-spec                 #      9.9% Bad Speculation       
+      333583176315      topdown-fe-bound                 #     13.3% Frontend Bound        
+      849015556966      topdown-be-bound                 #     33.9% Backend Bound         
+
+      27.106577841 seconds time elapsed
+
+-------------------------------------------------

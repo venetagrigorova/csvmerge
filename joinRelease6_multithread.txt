@@ -1,0 +1,24 @@
+Performance Statistics for Multiple Executables
+-------------------------------------------------
+
+Performance stats for joinRelease6_multithread:
+
+ Performance counter stats for 'system wide':
+
+         147316.29 msec cpu-clock                        #    8.000 CPUs utilized          
+           1560820      context-switches                 #   10.595 K/sec                  
+             12891      cpu-migrations                   #   87.506 /sec                   
+             72277      page-faults                      #  490.625 /sec                   
+      161120145886      cycles                           #    1.094 GHz                    
+      344313208528      instructions                     #    2.14  insn per cycle         
+       61661760313      branches                         #  418.567 M/sec                  
+        1148334071      branch-misses                    #    1.86% of all branches        
+      805579619190      slots                            #    5.468 G/sec                  
+      336636300180      topdown-retiring                 #     41.8% Retiring              
+      160644754928      topdown-bad-spec                 #     19.9% Bad Speculation       
+      145120758455      topdown-fe-bound                 #     18.0% Frontend Bound        
+      163177805614      topdown-be-bound                 #     20.3% Backend Bound         
+
+      18.414536483 seconds time elapsed
+
+-------------------------------------------------

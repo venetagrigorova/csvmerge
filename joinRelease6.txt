@@ -1,0 +1,28 @@
+Performance Statistics for Multiple Executables
+-------------------------------------------------
+
+Performance stats for joinRelease6:
+
+ Performance counter stats for './joinRelease6 /localtmp/efficient24/f1.csv /localtmp/efficient24/f2.csv /localtmp/efficient24/f3.csv /localtmp/efficient24/f4.csv':
+
+          18138.58 msec task-clock                       #    0.982 CPUs utilized          
+             12190      context-switches                 #  672.048 /sec                   
+                21      cpu-migrations                   #    1.158 /sec                   
+              4340      page-faults                      #  239.269 /sec                   
+       84678288714      cycles                           #    4.668 GHz                    
+      178192415790      instructions                     #    2.10  insn per cycle         
+       30726258497      branches                         #    1.694 G/sec                  
+         724787046      branch-misses                    #    2.36% of all branches        
+      423391368455      slots                            #   23.342 G/sec                  
+      129151120552      topdown-retiring                 #     24.6% Retiring              
+      323769869995      topdown-bad-spec                 #     61.6% Bad Speculation       
+       42088719532      topdown-fe-bound                 #      8.0% Frontend Bound        
+       30331439268      topdown-be-bound                 #      5.8% Backend Bound         
+
+      18.477613991 seconds time elapsed
+
+      15.595336000 seconds user
+       2.549199000 seconds sys
+
+
+-------------------------------------------------

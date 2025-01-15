@@ -1,22 +1,23 @@
-perf stat: 
-         89363.17 msec task-clock                       #    0.997 CPUs utilized
-              4783      context-switches                 #   53.523 /sec
-                52      cpu-migrations                   #    0.582 /sec
-           1744893      page-faults                      #   19.526 K/sec
-      383017326473      cycles                           #    4.286 GHz
-      720395996555      instructions                     #    1.88  insn per cycle
-      128165098077      branches                         #    1.434 G/sec
-        2122794067      branch-misses                    #    1.66% of all branches
-     1915086556790      slots                            #   21.430 G/sec
-      351381736973      topdown-retiring                 #     15.3% Retiring
-     1509538815352      topdown-bad-spec                 #     65.6% Bad Speculation
-      107888447107      topdown-fe-bound                 #      4.7% Frontend Bound
-      331762132238      topdown-be-bound                 #     14.4% Backend Bound
+ Performance counter stats for 'base /localtmp/efficient24/f1.csv /localtmp/efficient24/f2.csv /localtmp/efficient24/f3.csv /localtmp/efficient24/f4.csv':
 
-      89.607286089 seconds time elapsed
+          73041.39 msec task-clock                       #    0.998 CPUs utilized          
+              1954      context-switches                 #   26.752 /sec                   
+                13      cpu-migrations                   #    0.178 /sec                   
+           1744417      page-faults                      #   23.883 K/sec                  
+      310116076286      cycles                           #    4.246 GHz                    
+      529017220612      instructions                     #    1.71  insn per cycle         
+      123352719044      branches                         #    1.689 G/sec                  
+        2086881498      branch-misses                    #    1.69% of all branches        
+     1550580293175      slots                            #   21.229 G/sec                  
+      306317492319      topdown-retiring                 #     16.5% Retiring              
+     1058043023578      topdown-bad-spec                 #     57.0% Bad Speculation       
+      253519575762      topdown-fe-bound                 #     13.7% Frontend Bound        
+      237845235842      topdown-be-bound                 #     12.8% Backend Bound         
 
-      84.381535000 seconds user
-       4.984326000 seconds sys
+      73.186136062 seconds time elapsed
+
+      68.408140000 seconds user
+       4.635467000 seconds sys
 
 
 gprof:

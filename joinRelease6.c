@@ -22,12 +22,12 @@
 
 #define FIELD_LENGTH 23  // 22 chars + string terminator
 #define CHUNK_SIZE 100001    // Number of records per chunk
-#define MAX_NUM_CHUNKS 140  // Should have CHUNK_SIZE * MAX_NUM_CHUNKS >= 12 Mio.
+#define MAX_NUM_CHUNKS 120  // Should have CHUNK_SIZE * MAX_NUM_CHUNKS >= 12 Mio.
 #define MAX_PRINT_LINES 70 // Only for testing, limit the number of lines printed out at once
 #define MAX_NUM_CHARACTERS 55 // 1 + 10 + 26 + 17 + 1 (can handle \0, 0-9, A-Z, a-q, and one unknown character)
 #define INT_128 unsigned __int128
-#define TABLE_SIZE 2048         // How many records to store in a table at any time
-#define TABLE_BUFFER_SIZE 64  // How many of the records in the buffer to keep for backtracking, should be >128, << TABLE_SIZE
+#define TABLE_SIZE 4096         // How many records to store in a table at any time
+#define TABLE_BUFFER_SIZE 32  // How many of the records in the buffer to keep for backtracking, should be >128, << TABLE_SIZE
 
 
 // Structure for record with no fixed number of fields

@@ -1,18 +1,20 @@
-          75918.25 msec task-clock                       #    0.999 CPUs utilized          
-              1388      context-switches                 #   18.283 /sec                   
-                45      cpu-migrations                   #    0.593 /sec                   
-            354111      page-faults                      #    4.664 K/sec                  
-      320376029696      cycles                           #    4.220 GHz                    
-      579828427889      instructions                     #    1.81  insn per cycle         
-       99903749508      branches                         #    1.316 G/sec                  
-        1911811799      branch-misses                    #    1.91% of all branches        
-     1601880048065      slots                            #   21.100 G/sec                  
-      288760131411      topdown-retiring                 #     15.1% Retiring              
-     1275222155910      topdown-bad-spec                 #     66.9% Bad Speculation       
-       47981321855      topdown-fe-bound                 #      2.5% Frontend Bound        
-      294936183359      topdown-be-bound                 #     15.5% Backend Bound         
+ Performance counter stats for 'joinV2 /localtmp/efficient24/f1.csv /localtmp/efficient24/f2.csv /localtmp/efficient24/f3.csv /localtmp/efficient24/f4.csv':
 
-      76.019240569 seconds time elapsed
+          60409.37 msec task-clock                       #    0.998 CPUs utilized          
+              1237      context-switches                 #   20.477 /sec                   
+                24      cpu-migrations                   #    0.397 /sec                   
+            353639      page-faults                      #    5.854 K/sec                  
+      252109341599      cycles                           #    4.173 GHz                    
+      400648041564      instructions                     #    1.59  insn per cycle         
+       94880746378      branches                         #    1.571 G/sec                  
+        1911974757      branch-misses                    #    2.02% of all branches        
+     1260546675960      slots                            #   20.867 G/sec                  
+      236072401528      topdown-retiring                 #     14.8% Retiring              
+      963947458087      topdown-bad-spec                 #     60.3% Bad Speculation       
+      162523763070      topdown-fe-bound                 #     10.2% Frontend Bound        
+      235317507453      topdown-be-bound                 #     14.7% Backend Bound         
 
-      72.832487000 seconds user
-       3.086833000 seconds sys
+      60.517236395 seconds time elapsed
+
+      57.451067000 seconds user
+       2.960158000 seconds sys

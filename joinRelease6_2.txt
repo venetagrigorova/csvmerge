@@ -1,0 +1,23 @@
+
+ Performance counter stats for 'joinRelease6 /localtmp/efficient24/f1.csv /localtmp/efficient24/f2.csv /localtmp/efficient24/f3.csv /localtmp/efficient24/f4.csv':
+
+          44524.95 msec task-clock                       #    0.994 CPUs utilized          
+              6600      context-switches                 #  148.231 /sec                   
+                91      cpu-migrations                   #    2.044 /sec                   
+              7089      page-faults                      #  159.214 /sec                   
+      208266213324      cycles                           #    4.678 GHz                    
+      337116429979      instructions                     #    1.62  insn per cycle         
+       43540024391      branches                         #  977.879 M/sec                  
+         904889870      branch-misses                    #    2.08% of all branches        
+     1041330822810      slots                            #   23.388 G/sec                  
+      230426306294      topdown-retiring                 #     17.1% Retiring              
+      710555149682      topdown-bad-spec                 #     52.7% Bad Speculation       
+       33985032880      topdown-fe-bound                 #      2.5% Frontend Bound        
+      373342987527      topdown-be-bound                 #     27.7% Backend Bound         
+
+      44.789004655 seconds time elapsed
+
+      41.596010000 seconds user
+       2.932846000 seconds sys
+
+

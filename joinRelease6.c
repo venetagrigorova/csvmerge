@@ -64,17 +64,16 @@ static char decodingTable[MAX_NUM_CHARACTERS] = {0};
 // -----------= CONSTUCTORS AND DESTRUCTORS =----------------
 
 // Initialize a record with given number of fields at a certain adress
+//using calloc instead of malloc, calloc automaticly initilaze values to 0, so the for loop with explicity initialization is not MFLAG
 void initRecord(Record* record, const int numFields) {
-    record->fields = (INT_128*)malloc(numFields * sizeof(INT_128));
+    record->fields = (INT_128*)calloc(numFields,sizeof(INT_128));
     if(!record->fields) {
         perror("Failed to allocate memory for record");
         exit(EXIT_FAILURE);
     }
-    // Initialize all fields to be empty
-    for (int i = 0; i < numFields; i++) {
-        record->fields[i] = 0;
-    }
+    
 }
+
 
 
 // Free memory allocated for a record
@@ -100,9 +99,18 @@ Chunk* createChunk(const int numRecords, const int numFields) {
         exit(EXIT_FAILURE);
     }
 
-    // Loop unrolling here?
-    for (int i = 0; i < numRecords; i++) {
+    // Loop unrolling here MFLAG
+    int i = 0;
+    for ( i; i+3 < numRecords; i+=4) {
         records[i].fields = fieldBlock + i * numFields;
+        records[i + 1].fields = fieldBlock + (i + 1) * numFields;
+        records[i + 2].fields = fieldBlock + (i + 2) * numFields;
+        records[i + 3].fields = fieldBlock + (i + 3) * numFields;
+        
+    }
+    for (i ; i < numRecords; i++) {
+        records[i].fields = fieldBlock + i * numFields;
+        
     }
     chunk->records = records;
     chunk->numRecords = 0;
@@ -178,13 +186,17 @@ static inline INT_128 encodeField(const char* restrict field) {
     INT_128 offset = 1;
     char character;
     unsigned int add = 0;
-    for (int i = 0; i < FIELD_LENGTH && field[i] != ',' && field[i] != '\n'; i++) {
+    for (int i = 0; i < FIELD_LENGTH & field[i] != ',' & field[i] != '\n' ; i++) {
         character = field[i];
+        //arithemtic flags instead of if-else structure MFLAG
+        add =   (character >= 'A')*(character <= 'Z')*(character - 'A' + 1)+
+                (character >= '0')*(character <= '9')*(character - '0' + 27)+
+                (character >= 'a')*(character <= 'z')*(character - 'a' + 37)+
+                (character == '\0')*(MAX_NUM_CHARACTERS - 1);
 
-        add = encodingTable[(int)character];  // Lookup instead of if-else
-
-        result += add * offset;
-        offset *= MAX_NUM_CHARACTERS;
+        add = (add >= MAX_NUM_CHARACTERS) * (MAX_NUM_CHARACTERS - 1) + (add < MAX_NUM_CHARACTERS) * add;
+        result = result + add * offset;
+        offset = offset * MAX_NUM_CHARACTERS;
     }
     return result;
 }
@@ -197,14 +209,18 @@ static int decodeField(INT_128 code, char* output) {
     int len = 0;
     for(len = 0; len < FIELD_LENGTH; len++) {
         remainder = value % MAX_NUM_CHARACTERS;
-
-        output[len] = decodingTable[remainder];
-
+        //arithemtic flags instead of if-else structure
+        //however, using this gave lower valu for cycles, higher for instruction per cycle, CPU utilized and time MFLAG
+        output[len] = (remainder >= 1 && remainder <= 26) * ('A' + (remainder - 1)) +
+                      (remainder >= 27 && remainder <= 36) * ('0' + (remainder - 27)) +
+                      (remainder >= 37 && remainder <= MAX_NUM_CHARACTERS - 2) * ('a' + (remainder - 37)) +
+                      (remainder == MAX_NUM_CHARACTERS - 1) * '\0' +
+                      (remainder >= MAX_NUM_CHARACTERS) * '?';
         value = value / MAX_NUM_CHARACTERS;
         // breakout condition
         if(value == 0) {
-            output[len+1] = '\0';
-            len++;
+            output[++len] = '\0';
+            
             break;
         }
     }
@@ -440,10 +456,10 @@ static inline int compareRecordsOnFields(const void* restrict left, const void* 
     const Record* r1 = (const Record*)left;
     const Record* r2 = (const Record*)right;
 
-    if(r1->fields[left_on] > r2->fields[right_on]) return 1;
-    if(r1->fields[left_on] < r2->fields[right_on]) return -1;
-
-    return 0;
+    //arithmetic flag is used here MFLAG
+    int cmp = (r1->fields[left_on] > r2->fields[right_on]) - (r1->fields[left_on] < r2->fields[right_on]);
+    
+    return cmp;
 }
 
 // Inlined function to swap two records
@@ -625,23 +641,32 @@ void _mergeTempTables(Table** tempTables, const char* outputFileName, const int 
     // 2) Find out which is the smallest
     // 3) Print that record into the output file
     // 4) Repeat until all records are processed
-    while (tree->nodes[0].isValid) {
-        // Get the winner (minimum record)
-        int winnerChunkIndex = tree->nodes[0].chunkIndex;
-        Record* winnerRecord = tree->nodes[0].record;
+    int minRecordIndex; // this part is loop invariant, so it goes before loop MFLAG
+    do {//do while loop is better than while, due to position of branch condition MFLAG
+        minRecordIndex = -1; // Index of the current minimum record across chunks
 
-        writeRecordToFile(winnerRecord, output, numFields, true);
-        readNextRecord(tempTables[winnerChunkIndex]);
-
-        // Update the tournament tree with the new record
-        if (!tempTables[winnerChunkIndex]->endOfFile) {
-            updateNode(tree, winnerChunkIndex,
-                      &tempTables[winnerChunkIndex]->currentRecord,
-                      on_index, true);
-        } else {
-            updateNode(tree, winnerChunkIndex, NULL, on_index, false);
+        // Find the smallest record among the chunks
+        for (int i = 0; i < numChunks; i++) {
+            if (!tempTables[i]->endOfFile && (minRecordIndex == -1 ||
+                compareRecordsOnFields(&tempTables[i]->currentRecord,
+                                       &tempTables[minRecordIndex]->currentRecord,
+                                       on_index, on_index
+                                       ) < 0)) {
+                minRecordIndex = i;
+                                       }
         }
-    }
+
+        // If no more records are available, exit the merge loop
+        if (minRecordIndex == -1) {
+            break;
+        }
+
+        // Write the smallest record to the output file
+        writeRecordToFile(&tempTables[minRecordIndex]->currentRecord, output, numFields, true);
+
+        // Advance to the next record in the chunk containing the smallest record
+        readNextRecord(tempTables[minRecordIndex]);
+    }while (true);
     fclose(output);
 }
 
@@ -655,20 +680,23 @@ Table* ExternalMergeSort(const Table* table, const char* outputFileName, const i
     // 2) Sort in-memory
     // 3) Write as temp. file to disc
     // 4) Remove chunk from memory
-    while(!feof(table->file) && numChunks < MAX_NUM_CHUNKS) {
-        // Create new chunk file
-        char tempFilename[32];
-        sprintf(tempFilename, "temp_%d.bin", numChunks);
+    if (!feof(table->file) & numChunks < MAX_NUM_CHUNKS){//do-while with first check instead of while MFLAG
+                                                        //& instead of && cause second op is cheap
 
-        Chunk* chunk = loadFileIntoChunk(table->file, table->numFields, table->file_is_encoded);
-        sortChunk(chunk, on_index);
-        writeChunkToFile(chunk, tempFilename);
-        freeChunk(chunk);
+        do {
+            char tempFilename[32];
+            sprintf(tempFilename, "temp_%d.bin", numChunks);
 
-        tempTables[numChunks] = loadFileIntoTable(tempFilename, table->numFields, true);
-        readNextRecord(tempTables[numChunks]);
+            Chunk* chunk = loadFileIntoChunk(table->file, table->numFields, table->file_is_encoded);
+            sortChunk(chunk, on_index);
+            writeChunkToFile(chunk, tempFilename);
+            freeChunk(chunk);
 
-        numChunks++;
+            tempTables[numChunks] = loadFileIntoTable(tempFilename, table->numFields, true);
+            readNextRecord(tempTables[numChunks]);
+
+            numChunks++;    
+        }while(!feof(table->file) & numChunks < MAX_NUM_CHUNKS);
     }
 
     _mergeTempTables(tempTables, outputFileName, numChunks, on_index);
@@ -838,9 +866,9 @@ Table* joinThreeTables(Table* left, Table* middle, Table* right,
 
     // We iterate while there are still records in the left table
     // since even if the middle and right table are finished, there could still be joinable records in the buffers
-    while( !left->endOfFile ) {
-
-        if(l_greater_m == 0 && l_greater_r == 0) {  // case (B B B), all active
+    if ( !left->endOfFile ){ //if plus do while instead of while MFLAG
+        do{
+            if(l_greater_m == 0 && l_greater_r == 0) {  // case (B B B), all active
             // enter a join phase - from here on out we need buffers
             if(!is_in_join_phase) {
                 n_buffered_right = 0;
@@ -953,6 +981,8 @@ Table* joinThreeTables(Table* left, Table* middle, Table* right,
                 else                m_greater_r = 0;
             }
         }
+        }
+        while( !left->endOfFile );
     }
     // All records are correctly joined at this point
 
@@ -994,8 +1024,7 @@ Table* joinThreeTables(Table* left, Table* middle, Table* right,
     }
 
     // Load and return result
-    Table* result = loadFileIntoTable(outputFileName, numFieldsResult, true);
-    return result;
+    return (Table*)loadFileIntoTable(outputFileName, numFieldsResult, true);
 }
 
 

@@ -1,7 +1,8 @@
 # Efficient Programs 2024w Task Implementation
 ## Group 14
 
-Members:
+Members: Milica Aleksic, Ege Aydin, Veneta Grigorova, Thomas Klar, Adigun Oladapo Oludele, Pedro Silva, Christoph Winkler
+
 
 ## Usage
 
